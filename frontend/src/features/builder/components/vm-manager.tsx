@@ -1,11 +1,12 @@
 import { useState } from "react"
 import { useBuilderStore } from "../store/builder-store"
-import type { VirtualMachine, VMType } from "../../../types"
+import type { VirtualMachine, VMType, HardwareComponent } from "../../../types"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
 import { Badge } from "../../../components/ui/badge"
 import { Plus, Trash2, Cpu, Box, Container, Wifi, Pencil, Check, X, Shield } from "lucide-react"
+import { cn } from "../../../lib/utils"
 
 const VM_TYPE_ICONS: Record<VMType, React.ElementType> = {
     vm: Cpu,
@@ -23,10 +24,68 @@ interface Props {
     nodeId: string
 }
 
+const PT_TYPE_LABEL: Record<string, string> = {
+    gpu: 'GPU', hba: 'HBA', pcie: 'PCIe', disk: 'Disk',
+}
+
+function PassthroughSelector({
+    components,
+    selected,
+    onToggle,
+    takenByOther,
+}: {
+    components: HardwareComponent[]
+    selected: string[]
+    onToggle: (id: string) => void
+    takenByOther: Set<string>
+}) {
+    if (components.length === 0) return null
+    return (
+        <div>
+            <Label className="text-[10px]">Passthrough Components</Label>
+            <div className="flex flex-wrap gap-1 mt-1">
+                {components.map(c => {
+                    const isSelected = selected.includes(c.id)
+                    const isTaken = takenByOther.has(c.id)
+                    return (
+                        <button
+                            key={c.id}
+                            type="button"
+                            disabled={isTaken}
+                            onClick={() => onToggle(c.id)}
+                            className={cn(
+                                'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors',
+                                isSelected
+                                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                                    : isTaken
+                                        ? 'bg-muted/30 text-muted-foreground/40 border-muted cursor-not-allowed'
+                                        : 'bg-muted/30 text-muted-foreground border-border hover:border-amber-500/40 hover:text-amber-400',
+                            )}
+                            title={isTaken ? `Assigned to another VM` : c.name}
+                        >
+                            {PT_TYPE_LABEL[c.type] || c.type.toUpperCase()}: {c.name}
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
 export function VMManager({ nodeId }: Props) {
     const { hardwareNodes, addVM, removeVM, updateVM, tailscaleEnabled } = useBuilderStore()
     const node = hardwareNodes.find(n => n.id === nodeId)
     const vms = node?.vms || []
+    const hostComponents = node?.internal_components || []
+
+    const takenByOtherVM = (excludeVmId?: string) => {
+        const taken = new Set<string>()
+        for (const vm of vms) {
+            if (vm.id === excludeVmId) continue
+            for (const id of vm.passthrough || []) taken.add(id)
+        }
+        return taken
+    }
 
     const [isAdding, setIsAdding] = useState(false)
     const [editingVmId, setEditingVmId] = useState<string | null>(null)
@@ -40,7 +99,11 @@ export function VMManager({ nodeId }: Props) {
         tailscale_ip: '',
         cpu_cores: 1,
         ram_mb: 512,
+        passthrough: [],
     })
+
+    const togglePassthrough = (list: string[], id: string) =>
+        list.includes(id) ? list.filter(x => x !== id) : [...list, id]
 
     const handleAdd = () => {
         if (!newVM.name?.trim()) return
@@ -54,9 +117,10 @@ export function VMManager({ nodeId }: Props) {
             os: newVM.os || undefined,
             cpu_cores: newVM.cpu_cores,
             ram_mb: newVM.ram_mb,
+            passthrough: newVM.passthrough?.length ? newVM.passthrough : undefined,
         })
         setIsAdding(false)
-        setNewVM({ type: 'container', status: 'running', name: '', os: '', ip: '', tailscale_ip: '', cpu_cores: 1, ram_mb: 512 })
+        setNewVM({ type: 'container', status: 'running', name: '', os: '', ip: '', tailscale_ip: '', cpu_cores: 1, ram_mb: 512, passthrough: [] })
     }
 
     const cycleStatus = (vm: VirtualMachine) => {
@@ -78,6 +142,7 @@ export function VMManager({ nodeId }: Props) {
             tailscale_ip: vm.tailscale_ip || '',
             cpu_cores: vm.cpu_cores || 1,
             ram_mb: vm.ram_mb || 512,
+            passthrough: vm.passthrough || [],
         })
     }
 
@@ -91,6 +156,7 @@ export function VMManager({ nodeId }: Props) {
             tailscale_ip: editVM.tailscale_ip || undefined,
             cpu_cores: editVM.cpu_cores,
             ram_mb: editVM.ram_mb,
+            passthrough: editVM.passthrough?.length ? editVM.passthrough : undefined,
         })
         setEditingVmId(null)
         setEditVM({})
@@ -200,6 +266,14 @@ export function VMManager({ nodeId }: Props) {
                             />
                         </div>
                     </div>
+                    {hostComponents.length > 0 && (
+                        <PassthroughSelector
+                            components={hostComponents}
+                            selected={newVM.passthrough || []}
+                            onToggle={id => setNewVM(p => ({ ...p, passthrough: togglePassthrough(p.passthrough || [], id) }))}
+                            takenByOther={takenByOtherVM()}
+                        />
+                    )}
                     <div className="flex gap-2 pt-1">
                         <Button size="sm" className="h-7 text-xs flex-1" onClick={handleAdd}>
                             Add {newVM.type === 'vm' ? 'VM' : newVM.type === 'lxc' ? 'LXC' : 'Container'}
@@ -304,6 +378,14 @@ export function VMManager({ nodeId }: Props) {
                                     />
                                 </div>
                             </div>
+                            {hostComponents.length > 0 && (
+                                <PassthroughSelector
+                                    components={hostComponents}
+                                    selected={editVM.passthrough || []}
+                                    onToggle={id => setEditVM(p => ({ ...p, passthrough: togglePassthrough(p.passthrough || [], id) }))}
+                                    takenByOther={takenByOtherVM(vm.id)}
+                                />
+                            )}
                             <div className="flex gap-2 pt-1">
                                 <Button size="sm" className="h-7 text-xs flex-1" onClick={saveEdit}>
                                     <Check className="h-3 w-3 mr-1" /> Save
@@ -347,6 +429,23 @@ export function VMManager({ nodeId }: Props) {
                                     <span className="text-[10px] text-muted-foreground">{vm.ram_mb >= 1024 ? `${vm.ram_mb/1024}GB` : `${vm.ram_mb}MB`} RAM</span>
                                 )}
                             </div>
+                            {(vm.passthrough?.length ?? 0) > 0 && (
+                                <div className="flex flex-wrap gap-0.5 mt-1">
+                                    {vm.passthrough!.map(id => {
+                                        const comp = hostComponents.find(c => c.id === id)
+                                        if (!comp) return null
+                                        return (
+                                            <span
+                                                key={id}
+                                                className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-px text-[9px] font-semibold"
+                                                title={comp.name}
+                                            >
+                                                {PT_TYPE_LABEL[comp.type] || comp.type.toUpperCase()}: {comp.name}
+                                            </span>
+                                        )
+                                    })}
+                                </div>
+                            )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                             {/* Status toggle */}

@@ -166,6 +166,7 @@ export interface VirtualMachine {
   cpu_cores?: number;
   ram_mb?: number;
   status: 'running' | 'stopped' | 'paused';
+  passthrough?: string[]; // IDs of parent node's internal_components passed through
 }
 
 export interface HardwareComponent {

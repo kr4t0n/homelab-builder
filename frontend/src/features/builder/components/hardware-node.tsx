@@ -306,10 +306,21 @@ const VM_TYPE_COLOR: Record<string, string> = {
   lxc: 'bg-green-500/10 text-green-400 border-green-500/30',
 };
 
-function VmChip({ vm }: { vm: VirtualMachine }) {
+const PT_TYPE_LABEL: Record<string, string> = {
+  gpu: 'GPU',
+  hba: 'HBA',
+  pcie: 'PCIe',
+  disk: 'Disk',
+};
+
+function VmChip({ vm, components }: { vm: VirtualMachine; components?: HardwareComponent[] }) {
   const Icon = VM_TYPE_ICON[vm.type] ?? Box;
   const colorClass = VM_TYPE_COLOR[vm.type] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
   const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
+
+  const ptComponents = (vm.passthrough || [])
+    .map(id => components?.find(c => c.id === id))
+    .filter(Boolean) as HardwareComponent[];
 
   return (
     <div
@@ -329,6 +340,19 @@ function VmChip({ vm }: { vm: VirtualMachine }) {
         {tailscaleEnabled && vm.tailscale_ip && (
           <div className="text-[8px] text-blue-400 opacity-80">
             TS: {vm.tailscale_ip}
+          </div>
+        )}
+        {ptComponents.length > 0 && (
+          <div className="flex flex-wrap gap-0.5 mt-0.5">
+            {ptComponents.map(c => (
+              <span
+                key={c.id}
+                className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-px text-[7px] font-semibold leading-tight"
+                title={c.name}
+              >
+                {PT_TYPE_LABEL[c.type] || c.type.toUpperCase()}
+              </span>
+            ))}
           </div>
         )}
       </div>
@@ -673,7 +697,7 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
                 </p>
                 <div className="space-y-1 max-h-36 overflow-y-auto">
                   {vms.map(vm => (
-                    <VmChip key={vm.id} vm={vm} />
+                    <VmChip key={vm.id} vm={vm} components={components} />
                   ))}
                 </div>
               </div>

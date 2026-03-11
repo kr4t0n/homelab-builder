@@ -141,6 +141,11 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 				vmUID = parsed
 			}
 
+			ptJSON, _ := json.Marshal(vm.Passthrough)
+			if ptJSON == nil {
+				ptJSON = []byte("[]")
+			}
+
 			vModel := models.VirtualMachine{
 				ID:          vmUID,
 				NodeID:      uid,
@@ -152,6 +157,7 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 				CPUCores:    vm.CPUCores,
 				RAMMB:       vm.RAMMB,
 				Status:      vm.Status,
+				Passthrough: ptJSON,
 			}
 			if err := tx.Create(&vModel).Error; err != nil {
 				return err
@@ -266,15 +272,16 @@ type ComponentDTO struct {
 }
 
 type VMDTO struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Type        string  `json:"type"`
-	IP          string  `json:"ip"`
-	TailscaleIP string  `json:"tailscale_ip,omitempty"`
-	OS          string  `json:"os"`
-	CPUCores    float64 `json:"cpu_cores"`
-	RAMMB       int     `json:"ram_mb"`
-	Status      string  `json:"status"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"`
+	IP          string   `json:"ip"`
+	TailscaleIP string   `json:"tailscale_ip,omitempty"`
+	OS          string   `json:"os"`
+	CPUCores    float64  `json:"cpu_cores"`
+	RAMMB       int      `json:"ram_mb"`
+	Status      string   `json:"status"`
+	Passthrough []string `json:"passthrough,omitempty"`
 }
 
 type ServiceDTO struct {
