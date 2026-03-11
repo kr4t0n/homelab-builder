@@ -21,6 +21,7 @@ import {
   Zap,
   Printer,
   Globe,
+  Cloud,
 } from 'lucide-react';
 import type { HardwareType } from '../../../types';
 import { Card } from '../../../components/ui/card';
@@ -49,6 +50,7 @@ const HARDWARE_TOOLS: {
   { type: 'ups', label: 'UPS', icon: Battery, color: 'text-lime-500' },
   { type: 'iot', label: 'IoT', icon: Printer, color: 'text-yellow-600' },
   { type: 'modem', label: 'Modem', icon: Globe, color: 'text-blue-600' },
+  { type: 'internet', label: 'Internet', icon: Cloud, color: 'text-teal-500' },
 ];
 
 // ─── Preset library ────────────────────────────────────────────────────────────
@@ -220,6 +222,16 @@ const PRESETS: {
   {
     category: 'Networking',
     items: [
+      {
+        label: 'Internet (WAN)',
+        type: 'internet',
+        icon: Cloud,
+        sub: 'Public internet connection',
+        data: {
+          name: 'Internet',
+          details: { model: 'WAN / ISP Uplink' },
+        },
+      },
       {
         label: 'Unifi UDM Pro',
         type: 'router',

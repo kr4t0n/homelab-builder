@@ -137,7 +137,8 @@ export type HardwareType =
   | 'sbc'
   | 'minipc'
   | 'iot'
-  | 'modem';
+  | 'modem'
+  | 'internet';
 
 export interface HardwareSpec {
   model?: string;

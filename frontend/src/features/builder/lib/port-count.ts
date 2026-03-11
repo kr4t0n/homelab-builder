@@ -6,6 +6,7 @@ const DEFAULT_DYNAMIC_PORTS: Partial<Record<HardwareType, number>> = {
   server: 4,
   modem: 4,
   ups: 2,
+  internet: 4,
 };
 
 export const getDefaultPortCount = (type: HardwareType) => DEFAULT_DYNAMIC_PORTS[type] ?? 1;

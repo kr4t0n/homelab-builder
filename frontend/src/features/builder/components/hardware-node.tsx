@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Printer,
   Globe,
+  Cloud,
 } from 'lucide-react';
 import { Card } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
@@ -160,6 +161,13 @@ const TYPE_CONFIG: Partial<
     bg: 'bg-blue-600',
     iconColor: 'text-blue-600',
     color: '#2563eb',
+  },
+  internet: {
+    icon: Cloud,
+    border: 'border-border',
+    bg: 'bg-teal-500',
+    iconColor: 'text-teal-400',
+    color: '#14b8a6',
   },
 };
 const FALLBACK_CONFIG = {

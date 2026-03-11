@@ -27,6 +27,7 @@ import {
   Printer,
   Container,
   Box,
+  Cloud,
 } from 'lucide-react';
 import { useBuilderStore } from '../store/builder-store';
 import { isNetworkNode } from '../../../lib/hardware-config';
@@ -45,6 +46,7 @@ const ICON_MAP: Partial<Record<HardwareType, React.ElementType>> = {
   access_point: Wifi,
   iot: Printer,
   modem: Globe,
+  internet: Cloud,
 };
 
 const COLOR_MAP: Partial<Record<HardwareType, string>> = {
@@ -58,6 +60,7 @@ const COLOR_MAP: Partial<Record<HardwareType, string>> = {
   access_point: '#eab308',
   iot: '#ca8a04',
   modem: '#2563eb',
+  internet: '#14b8a6',
 };
 
 const VM_ICON: Record<string, React.ElementType> = {

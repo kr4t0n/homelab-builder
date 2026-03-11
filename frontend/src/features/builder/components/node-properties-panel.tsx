@@ -456,18 +456,20 @@ export function NodePropertiesPanel() {
               />
             </div>
           )}
-          <div className="space-y-1">
-            <Label htmlFor="model" className="text-xs text-muted-foreground">
-              Model
-            </Label>
-            <Input
-              id="model"
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              className="h-8 text-xs"
-              placeholder="e.g. Raspberry Pi 4"
-            />
-          </div>
+          {selectedNode.type !== 'internet' && (
+            <div className="space-y-1">
+              <Label htmlFor="model" className="text-xs text-muted-foreground">
+                Model
+              </Label>
+              <Input
+                id="model"
+                value={model}
+                onChange={e => setModel(e.target.value)}
+                className="h-8 text-xs"
+                placeholder="e.g. Raspberry Pi 4"
+              />
+            </div>
+          )}
 
           {nodeHasCPU(selectedNode.type) && (
             <div className="space-y-1">
