@@ -14,18 +14,85 @@ import {
   Unlock,
   ChevronDown,
   Shield,
+  Network,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../../../lib/utils';
 import type { HardwareType } from '../../../types';
 import { VMManager } from './vm-manager';
 import { InternalComponentManager } from './internal-component-manager';
-import { canNodeHostVMs, nodeHasCPU, nodeHasDynamicPorts, nodeHasRAM, nodeHasStorage, isNetworkNode } from '../../../lib/hardware-config';
+import { canNodeHostVMs, nodeHasCPU, nodeHasDynamicPorts, nodeHasRAM, nodeHasStorage, isNetworkNode, isComputeNode } from '../../../lib/hardware-config';
 import { getVmResourceUsage } from '../lib/resource-usage';
 import { getNodePortCount, parsePortCount } from '../lib/port-count';
 
+import type { K8sRole } from '../../../types';
+
 const IP_REGEX =
   /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+function K8sEnrollmentSection({ nodeId }: { nodeId: string }) {
+  const { k8sClusters, k8sMembers, enrollInK8s, unenrollFromK8s } = useBuilderStore();
+
+  const membership = k8sMembers.find(m => m.node_id === nodeId && !m.vm_id);
+  const cluster = membership ? k8sClusters.find(c => c.id === membership.cluster_id) : null;
+
+  if (k8sClusters.length === 0) return null;
+
+  return (
+    <div className="space-y-2 pt-4 border-t">
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <Network className="h-3 w-3 text-violet-400" />
+        Kubernetes
+      </h4>
+
+      <div className="flex gap-2">
+        <select
+          className="flex-1 h-7 text-xs rounded-md border bg-background px-2"
+          value={membership?.cluster_id || ''}
+          onChange={e => {
+            const val = e.target.value;
+            if (!val) {
+              unenrollFromK8s(nodeId, null);
+            } else {
+              enrollInK8s(nodeId, null, val, membership?.role || 'worker');
+            }
+          }}
+        >
+          <option value="">Not enrolled</option>
+          {k8sClusters.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
+        {membership && (
+          <select
+            className="w-24 h-7 text-xs rounded-md border bg-background px-2"
+            value={membership.role}
+            onChange={e => enrollInK8s(nodeId, null, membership.cluster_id, e.target.value as K8sRole)}
+          >
+            <option value="master">Master</option>
+            <option value="worker">Worker</option>
+          </select>
+        )}
+      </div>
+
+      {cluster && (
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cluster.color }} />
+          <span>{cluster.name}</span>
+          <span className={cn(
+            'px-1 py-px rounded text-[9px] font-semibold',
+            membership?.role === 'master'
+              ? 'bg-violet-500/15 text-violet-400'
+              : 'bg-sky-500/15 text-sky-400',
+          )}>
+            {membership?.role === 'master' ? 'Master' : 'Worker'}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function NodePropertiesPanel() {
   const {
@@ -546,6 +613,9 @@ export function NodePropertiesPanel() {
 
         {/* Component Manager (GPUs, Disks, etc) */}
         <InternalComponentManager nodeId={selectedNode.id} />
+
+        {/* Kubernetes enrollment */}
+        {isComputeNode(selectedNode.type) && <K8sEnrollmentSection nodeId={selectedNode.id} />}
 
         {/* VM Manager (servers, PCs, NAS) */}
         {supportsVMs && (

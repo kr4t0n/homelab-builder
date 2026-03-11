@@ -30,6 +30,7 @@ import type {
 } from '../../../types';
 import { isComputeNode, nodeHasDynamicPorts, isNetworkNode } from '../../../lib/hardware-config';
 import { useBuilderStore } from '../store/builder-store';
+import type { K8sMember, K8sCluster } from '../../../types';
 import { getVmResourceUsage } from '../lib/resource-usage';
 import { getNodePortCount } from '../lib/port-count';
 
@@ -339,7 +340,7 @@ function VmChip({ vm, components }: { vm: VirtualMachine; components?: HardwareC
         </div>
         {tailscaleEnabled && vm.tailscale_ip && (
           <div className="text-[8px] text-blue-400 opacity-80">
-            TS: {vm.tailscale_ip}
+            {vm.tailscale_ip}
           </div>
         )}
         {ptComponents.length > 0 && (
@@ -401,8 +402,13 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
   const cfg = TYPE_CONFIG[nodeData.type] ?? FALLBACK_CONFIG;
   const Icon = cfg.icon;
   const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
+  const k8sMembers = useBuilderStore(s => s.k8sMembers);
+  const k8sClusters = useBuilderStore(s => s.k8sClusters);
   const vms = nodeData.vms ?? [];
   const components = nodeData.internal_components ?? [];
+
+  const nodeK8s = k8sMembers.find((m: K8sMember) => m.node_id === id && !m.vm_id);
+  const nodeK8sCluster = nodeK8s ? k8sClusters.find((c: K8sCluster) => c.id === nodeK8s.cluster_id) : null;
   const hasVMs = vms.length > 0;
   const hasComponents = components.length > 0;
   const isCompute = isComputeNode(nodeData.type);
@@ -622,6 +628,25 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
                   )}
                 >
                   {nodeData.tailscale_ip || 'not enrolled'}
+                </span>
+              </div>
+            )}
+
+            {/* K8s cluster badge */}
+            {nodeK8sCluster && nodeK8s && (
+              <div className="flex items-center gap-1.5 px-1">
+                <div
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: nodeK8sCluster.color }}
+                />
+                <span
+                  className="text-[9px] font-semibold uppercase tracking-wider"
+                  style={{ color: nodeK8sCluster.color }}
+                >
+                  K8s {nodeK8s.role}
+                </span>
+                <span className="text-[9px] text-muted-foreground truncate">
+                  {nodeK8sCluster.name}
                 </span>
               </div>
             )}

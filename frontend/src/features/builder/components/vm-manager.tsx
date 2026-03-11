@@ -17,12 +17,12 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { useBuilderStore } from "../store/builder-store"
-import type { VirtualMachine, VMType, HardwareComponent } from "../../../types"
+import type { VirtualMachine, VMType, HardwareComponent, K8sRole } from "../../../types"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
 import { Badge } from "../../../components/ui/badge"
-import { Plus, Trash2, Cpu, Box, Container, Wifi, Pencil, Check, X, Shield, GripVertical } from "lucide-react"
+import { Plus, Trash2, Cpu, Box, Container, Wifi, Pencil, Check, X, Shield, GripVertical, Network } from "lucide-react"
 import { cn } from "../../../lib/utils"
 
 const VM_TYPE_ICONS: Record<VMType, React.ElementType> = {
@@ -87,6 +87,47 @@ function PassthroughSelector({
             </div>
         </div>
     )
+}
+
+function VmK8sBadge({ nodeId, vmId }: { nodeId: string; vmId: string }) {
+    const { k8sClusters, k8sMembers, enrollInK8s, unenrollFromK8s } = useBuilderStore();
+    const membership = k8sMembers.find(m => m.node_id === nodeId && m.vm_id === vmId);
+    const cluster = membership ? k8sClusters.find(c => c.id === membership.cluster_id) : null;
+
+    if (k8sClusters.length === 0) return null;
+
+    return (
+        <div className="flex items-center gap-1 mt-1">
+            <Network className="h-2.5 w-2.5 text-violet-400 shrink-0" />
+            <select
+                className="h-5 text-[9px] rounded border bg-background px-1 min-w-0"
+                value={membership?.cluster_id || ''}
+                onChange={e => {
+                    const val = e.target.value;
+                    if (!val) unenrollFromK8s(nodeId, vmId);
+                    else enrollInK8s(nodeId, vmId, val, membership?.role || 'worker');
+                }}
+            >
+                <option value="">None</option>
+                {k8sClusters.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+            </select>
+            {membership && (
+                <select
+                    className="h-5 text-[9px] rounded border bg-background px-1 w-16"
+                    value={membership.role}
+                    onChange={e => enrollInK8s(nodeId, vmId, membership.cluster_id, e.target.value as K8sRole)}
+                >
+                    <option value="master">Master</option>
+                    <option value="worker">Worker</option>
+                </select>
+            )}
+            {cluster && (
+                <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cluster.color }} />
+            )}
+        </div>
+    );
 }
 
 function SortableVM({
@@ -295,6 +336,7 @@ function SortableVM({
                         })}
                     </div>
                 )}
+                <VmK8sBadge nodeId={nodeId} vmId={vm.id} />
             </div>
             <div className="flex items-center gap-1 shrink-0">
                 <button

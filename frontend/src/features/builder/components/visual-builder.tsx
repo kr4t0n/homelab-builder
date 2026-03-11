@@ -20,7 +20,7 @@ import { HardwareNode as HardwareNodeComponent } from './hardware-node';
 import { NodePropertiesPanel } from './node-properties-panel';
 import { LiveResourceDashboard } from './live-resource-dashboard';
 import { Button } from '../../../components/ui/button';
-import { Wand2, Menu, Save, Folder, Download, LogOut, Route, Shield } from 'lucide-react';
+import { Wand2, Menu, Save, Folder, Download, LogOut, Route, Shield, Network } from 'lucide-react';
 import type { HardwareType, HardwareNode } from '../../../types';
 import { cn } from '../../../lib/utils';
 import { buildApi } from '../api/builds';
@@ -40,6 +40,8 @@ import {
 
 import { CustomEdge } from './custom-edge';
 import { TailscaleView, TailscaleStatusBadge } from './tailscale-mesh-overlay';
+import { K8sClusterManager } from './k8s-cluster-manager';
+import { K8sClusterOverlay, K8sStatusBadge } from './k8s-cluster-overlay';
 
 const nodeTypes: NodeTypes = {
   hardware: HardwareNodeComponent,
@@ -165,9 +167,14 @@ function Flow() {
     setTailscaleEnabled,
     tailscaleViewActive,
     setTailscaleViewActive,
+    k8sClusters,
+    k8sOverlayActive,
+    setK8sOverlayActive,
     undo,
     redo,
   } = useBuilderStore();
+
+  const [k8sManagerOpen, setK8sManagerOpen] = useState(false);
 
   const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
 
@@ -571,7 +578,11 @@ function Flow() {
 
       <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
         <LiveResourceDashboard />
-        <TailscaleStatusBadge />
+        <div className="absolute bottom-10 right-4 z-10 flex items-center gap-2">
+          <TailscaleStatusBadge />
+          <K8sStatusBadge />
+        </div>
+        <K8sClusterManager open={k8sManagerOpen} onOpenChange={setK8sManagerOpen} />
 
         <ReactFlow
           nodes={nodes}
@@ -719,6 +730,57 @@ function Flow() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
+                <Button
+                  variant={k8sClusters.length > 0 ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(
+                    'h-10 w-37.5',
+                    k8sClusters.length > 0
+                      ? 'bg-violet-600 hover:bg-violet-700 text-white'
+                      : 'bg-card',
+                  )}
+                >
+                  <Network className="mr-2 h-4 w-4 shrink-0" />
+                  Kubernetes
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>Kubernetes Clusters</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setK8sManagerOpen(!k8sManagerOpen)}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Manage Clusters</span>
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-full',
+                      k8sClusters.length > 0
+                        ? 'bg-violet-500/20 text-violet-400'
+                        : 'bg-muted text-muted-foreground',
+                    )}>
+                      {k8sClusters.length}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                {k8sClusters.length > 0 && (
+                  <DropdownMenuItem onClick={() => setK8sOverlayActive(!k8sOverlayActive)}>
+                    <div className="flex items-center justify-between w-full">
+                      <span>Cluster Overlay View</span>
+                      <span className={cn(
+                        'text-[10px] px-1.5 py-0.5 rounded-full',
+                        k8sOverlayActive
+                          ? 'bg-violet-500/20 text-violet-400'
+                          : 'bg-muted text-muted-foreground',
+                      )}>
+                        {k8sOverlayActive ? 'ON' : 'OFF'}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-10 bg-card w-37.5">
                   <Route className="mr-2 h-4 w-4 shrink-0" />
                   Edge Settings
@@ -774,6 +836,7 @@ function Flow() {
         </ReactFlow>
 
         <TailscaleView />
+        <K8sClusterOverlay />
       </div>
     </div>
   );

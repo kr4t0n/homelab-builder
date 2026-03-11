@@ -336,7 +336,7 @@ export function TailscaleStatusBadge() {
 
   return (
     <div className={cn(
-      'absolute bottom-10 right-4 z-10 flex items-center gap-2 px-3 py-1.5 rounded-full',
+      'flex items-center gap-2 px-3 py-1.5 rounded-full',
       'bg-blue-950/80 border border-blue-500/30 text-blue-300 text-[11px]',
       'pointer-events-none select-none backdrop-blur-sm',
     )}>

@@ -18,6 +18,9 @@ import type {
   HardwareType,
   HardwareComponent,
   HardwareNodeValidationIssue,
+  K8sCluster,
+  K8sMember,
+  K8sRole,
 } from '../../../types';
 import { buildApi, type Build } from '../api/builds';
 import { api } from '../../../services/api';
@@ -92,6 +95,17 @@ interface BuilderState {
   tailscaleViewActive: boolean;
   setTailscaleViewActive: (active: boolean) => void;
 
+  // Kubernetes Clusters
+  k8sClusters: K8sCluster[];
+  k8sMembers: K8sMember[];
+  k8sOverlayActive: boolean;
+  addK8sCluster: (cluster: K8sCluster) => void;
+  removeK8sCluster: (id: string) => void;
+  updateK8sCluster: (id: string, updates: Partial<K8sCluster>) => void;
+  enrollInK8s: (nodeId: string, vmId: string | null, clusterId: string, role: K8sRole) => void;
+  unenrollFromK8s: (nodeId: string, vmId: string | null) => void;
+  setK8sOverlayActive: (active: boolean) => void;
+
   // Network Validation
   validationIssues: HardwareNodeValidationIssue[];
   validateNetwork: () => Promise<void>;
@@ -141,6 +155,9 @@ export const useBuilderStore = create<BuilderState>()(
       validationIssues: [],
       tailscaleEnabled: false,
       tailscaleViewActive: false,
+      k8sClusters: [],
+      k8sMembers: [],
+      k8sOverlayActive: false,
       availableServices: [],
       fetchServices: async () => {
         try {
@@ -161,6 +178,38 @@ export const useBuilderStore = create<BuilderState>()(
         setTimeout(() => get().reassignAllIPs(), 0);
       },
       setTailscaleViewActive: active => set({ tailscaleViewActive: active }),
+
+      addK8sCluster: cluster => set(state => ({ k8sClusters: [...state.k8sClusters, cluster] })),
+
+      removeK8sCluster: id =>
+        set(state => ({
+          k8sClusters: state.k8sClusters.filter(c => c.id !== id),
+          k8sMembers: state.k8sMembers.filter(m => m.cluster_id !== id),
+        })),
+
+      updateK8sCluster: (id, updates) =>
+        set(state => ({
+          k8sClusters: state.k8sClusters.map(c => (c.id === id ? { ...c, ...updates } : c)),
+        })),
+
+      enrollInK8s: (nodeId, vmId, clusterId, role) =>
+        set(state => {
+          const filtered = state.k8sMembers.filter(
+            m => !(m.node_id === nodeId && (vmId ? m.vm_id === vmId : !m.vm_id)),
+          );
+          return {
+            k8sMembers: [...filtered, { node_id: nodeId, vm_id: vmId || undefined, role, cluster_id: clusterId }],
+          };
+        }),
+
+      unenrollFromK8s: (nodeId, vmId) =>
+        set(state => ({
+          k8sMembers: state.k8sMembers.filter(
+            m => !(m.node_id === nodeId && (vmId ? m.vm_id === vmId : !m.vm_id)),
+          ),
+        })),
+
+      setK8sOverlayActive: active => set({ k8sOverlayActive: active }),
 
       projectName: 'My Homelab',
       projectThumbnail: '',
@@ -266,6 +315,7 @@ export const useBuilderStore = create<BuilderState>()(
             nodes: state.nodes.filter(n => n.id !== nodeId),
             edges: state.edges.filter(e => e.source !== nodeId && e.target !== nodeId),
             selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
+            k8sMembers: state.k8sMembers.filter(m => m.node_id !== nodeId),
           };
         }),
 
@@ -791,6 +841,8 @@ export const useBuilderStore = create<BuilderState>()(
           boughtItems: settings.boughtItems || [],
           showBought: settings.showBought || false,
           tailscaleEnabled: settings.tailscale_enabled || false,
+          k8sClusters: settings.k8s_clusters || [],
+          k8sMembers: settings.k8s_members || [],
         });
       },
 
@@ -832,6 +884,8 @@ export const useBuilderStore = create<BuilderState>()(
             boughtItems: state.boughtItems,
             showBought: state.showBought,
             tailscale_enabled: state.tailscaleEnabled,
+            k8s_clusters: state.k8sClusters,
+            k8s_members: state.k8sMembers,
           },
         };
       },
@@ -862,6 +916,8 @@ export const useBuilderStore = create<BuilderState>()(
         showBought: state.showBought,
         projectName: state.projectName,
         tailscaleEnabled: state.tailscaleEnabled,
+        k8sClusters: state.k8sClusters,
+        k8sMembers: state.k8sMembers,
       }),
     },
   ),

@@ -191,6 +191,29 @@ export interface HardwareNode {
   internal_components?: HardwareComponent[]; // Nested hardware (GPU, Disk, etc)
 }
 
+// ─── Kubernetes Cluster Topology ────────────────────────────────────────────
+export type K8sDistro = 'kubernetes';
+export type K8sCNI = 'flannel' | 'calico' | 'cilium';
+export type K8sRole = 'master' | 'worker';
+
+export interface K8sCluster {
+  id: string;
+  name: string;
+  distro: K8sDistro;
+  pod_cidr: string;
+  service_cidr: string;
+  cni: K8sCNI;
+  api_server_port: number;
+  color: string;
+}
+
+export interface K8sMember {
+  node_id: string;
+  vm_id?: string;
+  role: K8sRole;
+  cluster_id: string;
+}
+
 export type HardwareNodeValidationIssue = {
   node_id: string;
   message: string;
