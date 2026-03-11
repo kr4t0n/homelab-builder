@@ -39,7 +39,7 @@ import {
 } from '../../../components/ui/dropdown-menu';
 
 import { CustomEdge } from './custom-edge';
-import { TailscaleMeshOverlay, TailscaleStatusBadge } from './tailscale-mesh-overlay';
+import { TailscaleView, TailscaleStatusBadge } from './tailscale-mesh-overlay';
 
 const nodeTypes: NodeTypes = {
   hardware: HardwareNodeComponent,
@@ -603,7 +603,6 @@ function Flow() {
         >
           <Background gap={20} size={1} color="#A1A1AA" style={{ opacity: 0.25 }} />
           <Controls />
-          <TailscaleMeshOverlay />
 
           <Panel position="top-left" className="flex gap-2 items-center">
             <DropdownMenu>
@@ -773,6 +772,8 @@ function Flow() {
 
           <ShortcutHints />
         </ReactFlow>
+
+        <TailscaleView />
       </div>
     </div>
   );
