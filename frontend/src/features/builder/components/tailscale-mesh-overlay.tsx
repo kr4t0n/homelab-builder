@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import {
   ReactFlow,
   Background,
@@ -7,9 +7,11 @@ import {
   type Edge,
   type NodeTypes,
   type NodeProps,
+  type OnNodesChange,
   Handle,
   Position,
   ReactFlowProvider,
+  applyNodeChanges,
 } from '@xyflow/react';
 import {
   Shield,
@@ -164,7 +166,7 @@ function TailscaleViewInner() {
   const hardwareNodes = useBuilderStore(s => s.hardwareNodes);
   const setTailscaleViewActive = useBuilderStore(s => s.setTailscaleViewActive);
 
-  const { tsNodes, tsEdges, enrolledCount, vmCount } = useMemo(() => {
+  const { initialNodes, tsEdges, enrolledCount, vmCount } = useMemo(() => {
     const enrolled = hardwareNodes.filter(
       (hn: HWNode) => isNetworkNode(hn.type) && hn.tailscale_ip,
     );
@@ -217,8 +219,16 @@ function TailscaleViewInner() {
       0,
     );
 
-    return { tsNodes: nodes, tsEdges: edges, enrolledCount: enrolled.length, vmCount: vms };
+    return { initialNodes: nodes, tsEdges: edges, enrolledCount: enrolled.length, vmCount: vms };
   }, [hardwareNodes]);
+
+  const [tsNodes, setTsNodes] = useState<Node[]>(initialNodes);
+  useEffect(() => setTsNodes(initialNodes), [initialNodes]);
+
+  const onNodesChange: OnNodesChange = useCallback(
+    (changes) => setTsNodes(nds => applyNodeChanges(changes, nds)),
+    [],
+  );
 
   const onClose = useCallback(() => setTailscaleViewActive(false), [setTailscaleViewActive]);
 
@@ -261,12 +271,12 @@ function TailscaleViewInner() {
         <ReactFlow
           nodes={tsNodes}
           edges={tsEdges}
+          onNodesChange={onNodesChange}
           nodeTypes={tsNodeTypes}
           fitView
           fitViewOptions={{ padding: 0.3 }}
           nodesDraggable={true}
           nodesConnectable={false}
-          elementsSelectable={false}
           panOnDrag={true}
           zoomOnScroll={true}
           className="bg-slate-950"
