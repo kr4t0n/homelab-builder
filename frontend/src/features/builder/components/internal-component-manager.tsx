@@ -1,8 +1,25 @@
 import { useState } from "react"
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+    arrayMove,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { useBuilderStore } from "../store/builder-store"
 import { Button } from "../../../components/ui/button"
 import { Badge } from "../../../components/ui/badge"
-import { Trash2, HardDrive, Cpu, ScanLine, CircuitBoard, Component, Zap, Archive, Pencil } from "lucide-react"
+import { Trash2, HardDrive, Cpu, ScanLine, CircuitBoard, Component, Zap, Archive, Pencil, GripVertical } from "lucide-react"
 import type { HardwareType, HardwareComponent } from "../../../types"
 import { ComponentDetailsDialog } from "./component-details-dialog"
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog"
@@ -19,20 +36,119 @@ const COMPONENT_ICONS: Partial<Record<HardwareType, React.ElementType>> = {
     nas: Archive,
     router: Component,
     switch: Component,
-    // Add others if needed
 }
 
 interface Props {
     nodeId: string
 }
 
+function SortableComponent({
+    comp,
+    onEdit,
+    onDelete,
+}: {
+    comp: HardwareComponent
+    onEdit: (comp: HardwareComponent) => void
+    onDelete: (id: string) => void
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: comp.id })
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+    }
+
+    const Icon = COMPONENT_ICONS[comp.type] || Component
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className="flex items-start gap-2 rounded-lg border bg-background/60 p-2.5 group"
+        >
+            <button
+                className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                {...attributes}
+                {...listeners}
+            >
+                <GripVertical className="h-3.5 w-3.5" />
+            </button>
+            <div className="mt-0.5 shrink-0">
+                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(comp)}>
+                <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold truncate hover:underline underline-offset-2 decoration-muted-foreground/50">
+                        {comp.name}
+                    </span>
+                    <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0 uppercase opacity-70">
+                        {comp.type}
+                    </Badge>
+                </div>
+                <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground truncate">
+                    {comp.details?.model && <span>{comp.details.model}</span>}
+                    {comp.details?.ram && <span>{comp.details.ram} {comp.type === 'gpu' ? 'VRAM' : ''}</span>}
+                    {comp.details?.storage && <span>{comp.details.storage}</span>}
+                </div>
+            </div>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground hover:text-primary"
+                    onClick={() => onEdit(comp)}
+                    title="Edit component"
+                >
+                    <Pencil className="h-3 w-3" />
+                </Button>
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(comp.id);
+                    }}
+                    title="Remove component"
+                >
+                    <Trash2 className="h-3 w-3" />
+                </Button>
+            </div>
+        </div>
+    )
+}
+
 export function InternalComponentManager({ nodeId }: Props) {
-    const { hardwareNodes, removeInternalComponent, updateInternalComponent } = useBuilderStore()
+    const { hardwareNodes, removeInternalComponent, updateInternalComponent, reorderInternalComponents } = useBuilderStore()
     const node = hardwareNodes.find(n => n.id === nodeId)
     const components = node?.internal_components || []
     
     const [editingComponent, setEditingComponent] = useState<HardwareComponent | null>(null)
     const [deletingCompId, setDeletingCompId] = useState<string | null>(null)
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    )
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const oldIndex = components.findIndex(c => c.id === active.id)
+        const newIndex = components.findIndex(c => c.id === over.id)
+        const reordered = arrayMove(components, oldIndex, newIndex)
+        reorderInternalComponents(nodeId, reordered.map(c => c.id))
+    }
 
     if (components.length === 0) return null
 
@@ -44,56 +160,20 @@ export function InternalComponentManager({ nodeId }: Props) {
                 </h4>
             </div>
 
-            <div className="space-y-2">
-                {components.map(comp => {
-                    const Icon = COMPONENT_ICONS[comp.type] || Component
-                    return (
-                        <div key={comp.id} className="flex items-start gap-2 rounded-lg border bg-background/60 p-2.5 group">
-                            <div className="mt-0.5 shrink-0">
-                                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                            </div>
-                            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingComponent(comp)}>
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-xs font-semibold truncate hover:underline underline-offset-2 decoration-muted-foreground/50">
-                                        {comp.name}
-                                    </span>
-                                    <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0 uppercase opacity-70">
-                                        {comp.type}
-                                    </Badge>
-                                </div>
-                                <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground truncate">
-                                    {comp.details?.model && <span>{comp.details.model}</span>}
-                                    {comp.details?.ram && <span>{comp.details.ram} {comp.type === 'gpu' ? 'VRAM' : ''}</span>}
-                                    {comp.details?.storage && <span>{comp.details.storage}</span>}
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-6 w-6 text-muted-foreground hover:text-primary"
-                                    onClick={() => setEditingComponent(comp)}
-                                    title="Edit component"
-                                >
-                                    <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setDeletingCompId(comp.id);
-                                    }}
-                                    title="Remove component"
-                                >
-                                    <Trash2 className="h-3 w-3" />
-                                </Button>
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={components.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                        {components.map(comp => (
+                            <SortableComponent
+                                key={comp.id}
+                                comp={comp}
+                                onEdit={setEditingComponent}
+                                onDelete={setDeletingCompId}
+                            />
+                        ))}
+                    </div>
+                </SortableContext>
+            </DndContext>
 
             {/* Edit Dialog */}
             {editingComponent && (

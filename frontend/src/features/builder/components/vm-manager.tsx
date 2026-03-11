@@ -1,11 +1,28 @@
 import { useState } from "react"
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+    arrayMove,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { useBuilderStore } from "../store/builder-store"
 import type { VirtualMachine, VMType, HardwareComponent } from "../../../types"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
 import { Badge } from "../../../components/ui/badge"
-import { Plus, Trash2, Cpu, Box, Container, Wifi, Pencil, Check, X, Shield } from "lucide-react"
+import { Plus, Trash2, Cpu, Box, Container, Wifi, Pencil, Check, X, Shield, GripVertical } from "lucide-react"
 import { cn } from "../../../lib/utils"
 
 const VM_TYPE_ICONS: Record<VMType, React.ElementType> = {
@@ -72,8 +89,243 @@ function PassthroughSelector({
     )
 }
 
+function SortableVM({
+    vm,
+    isEditing,
+    editVM,
+    setEditVM,
+    saveEdit,
+    cancelEdit,
+    startEditing,
+    cycleStatus,
+    removeVM,
+    nodeId,
+    hostComponents,
+    takenByOtherVM,
+    togglePassthrough,
+    tailscaleEnabled,
+}: {
+    vm: VirtualMachine
+    isEditing: boolean
+    editVM: Partial<VirtualMachine>
+    setEditVM: React.Dispatch<React.SetStateAction<Partial<VirtualMachine>>>
+    saveEdit: () => void
+    cancelEdit: () => void
+    startEditing: (vm: VirtualMachine) => void
+    cycleStatus: (vm: VirtualMachine) => void
+    removeVM: (nodeId: string, vmId: string) => void
+    nodeId: string
+    hostComponents: HardwareComponent[]
+    takenByOtherVM: (excludeVmId?: string) => Set<string>
+    togglePassthrough: (list: string[], id: string) => string[]
+    tailscaleEnabled: boolean
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: vm.id, disabled: isEditing })
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : undefined,
+        opacity: isDragging ? 0.5 : 1,
+    }
+
+    const Icon = VM_TYPE_ICONS[vm.type] || Box
+
+    if (isEditing) {
+        return (
+            <div ref={setNodeRef} style={style} className="rounded-lg border border-primary/50 bg-muted/30 p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label className="text-[10px]">Name</Label>
+                        <Input
+                            className="h-7 text-xs"
+                            value={editVM.name}
+                            onChange={e => setEditVM(p => ({ ...p, name: e.target.value }))}
+                        />
+                    </div>
+                    <div>
+                        <Label className="text-[10px]">Type</Label>
+                        <select
+                            className="w-full h-7 text-xs rounded-md border bg-background px-2"
+                            value={editVM.type}
+                            onChange={e => setEditVM(p => ({ ...p, type: e.target.value as VMType }))}
+                        >
+                            <option value="container">Container</option>
+                            <option value="vm">VM</option>
+                            <option value="lxc">LXC</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label className="text-[10px]">OS / Image</Label>
+                        <Input
+                            className="h-7 text-xs"
+                            placeholder="Ubuntu 22.04"
+                            value={editVM.os}
+                            onChange={e => setEditVM(p => ({ ...p, os: e.target.value }))}
+                        />
+                    </div>
+                    <div>
+                        <Label className="text-[10px]">IP (auto if blank)</Label>
+                        <Input
+                            className="h-7 text-xs"
+                            placeholder="auto"
+                            value={editVM.ip}
+                            onChange={e => setEditVM(p => ({ ...p, ip: e.target.value }))}
+                        />
+                    </div>
+                </div>
+                {tailscaleEnabled && (
+                    <div>
+                        <Label className="text-[10px] flex items-center gap-1 text-blue-400">
+                            <Shield className="h-2.5 w-2.5" /> Tailscale IP
+                        </Label>
+                        <Input
+                            className="h-7 text-xs font-mono text-blue-300 bg-blue-950/20 border-blue-500/30"
+                            placeholder="auto"
+                            value={editVM.tailscale_ip}
+                            onChange={e => setEditVM(p => ({ ...p, tailscale_ip: e.target.value }))}
+                        />
+                    </div>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <Label className="text-[10px]">CPU Cores</Label>
+                        <Input
+                            className="h-7 text-xs"
+                            type="number"
+                            min={1}
+                            max={32}
+                            value={editVM.cpu_cores}
+                            onChange={e => setEditVM(p => ({ ...p, cpu_cores: Number(e.target.value) }))}
+                        />
+                    </div>
+                    <div>
+                        <Label className="text-[10px]">RAM (MB)</Label>
+                        <Input
+                            className="h-7 text-xs"
+                            type="number"
+                            min={128}
+                            step={128}
+                            value={editVM.ram_mb}
+                            onChange={e => setEditVM(p => ({ ...p, ram_mb: Number(e.target.value) }))}
+                        />
+                    </div>
+                </div>
+                {hostComponents.length > 0 && (
+                    <PassthroughSelector
+                        components={hostComponents}
+                        selected={editVM.passthrough || []}
+                        onToggle={id => setEditVM(p => ({ ...p, passthrough: togglePassthrough(p.passthrough || [], id) }))}
+                        takenByOther={takenByOtherVM(vm.id)}
+                    />
+                )}
+                <div className="flex gap-2 pt-1">
+                    <Button size="sm" className="h-7 text-xs flex-1" onClick={saveEdit}>
+                        <Check className="h-3 w-3 mr-1" /> Save
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={cancelEdit}>
+                        <X className="h-3 w-3 mr-1" /> Cancel
+                    </Button>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div ref={setNodeRef} style={style} className="flex items-start gap-2 rounded-lg border bg-background/60 p-2.5">
+            <button
+                className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                {...attributes}
+                {...listeners}
+            >
+                <GripVertical className="h-3.5 w-3.5" />
+            </button>
+            <div className="mt-0.5 shrink-0">
+                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold truncate">{vm.name}</span>
+                    <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0">
+                        {vm.type.toUpperCase()}
+                    </Badge>
+                </div>
+                {vm.os && <p className="text-[10px] text-muted-foreground">{vm.os}</p>}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {vm.ip && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-primary font-mono">
+                            <Wifi className="h-2.5 w-2.5" />{vm.ip}
+                        </span>
+                    )}
+                    {tailscaleEnabled && vm.tailscale_ip && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-blue-400 font-mono">
+                            <Shield className="h-2.5 w-2.5" />{vm.tailscale_ip}
+                        </span>
+                    )}
+                    {vm.cpu_cores && (
+                        <span className="text-[10px] text-muted-foreground">{vm.cpu_cores}vCPU</span>
+                    )}
+                    {vm.ram_mb && (
+                        <span className="text-[10px] text-muted-foreground">{vm.ram_mb >= 1024 ? `${vm.ram_mb/1024}GB` : `${vm.ram_mb}MB`} RAM</span>
+                    )}
+                </div>
+                {(vm.passthrough?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-0.5 mt-1">
+                        {vm.passthrough!.map(id => {
+                            const comp = hostComponents.find(c => c.id === id)
+                            if (!comp) return null
+                            return (
+                                <span
+                                    key={id}
+                                    className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-px text-[9px] font-semibold"
+                                    title={comp.name}
+                                >
+                                    {PT_TYPE_LABEL[comp.type] || comp.type.toUpperCase()}: {comp.name}
+                                </span>
+                            )
+                        })}
+                    </div>
+                )}
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+                <button
+                    onClick={() => cycleStatus(vm)}
+                    className={`h-4 w-4 rounded-full ${STATUS_COLORS[vm.status]} hover:opacity-80 transition-opacity`}
+                    title={`Status: ${vm.status}. Click to toggle.`}
+                />
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground hover:text-primary"
+                    onClick={() => startEditing(vm)}
+                    title="Edit"
+                >
+                    <Pencil className="h-3 w-3" />
+                </Button>
+                <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeVM(nodeId, vm.id)}
+                >
+                    <Trash2 className="h-3 w-3" />
+                </Button>
+            </div>
+        </div>
+    )
+}
+
 export function VMManager({ nodeId }: Props) {
-    const { hardwareNodes, addVM, removeVM, updateVM, tailscaleEnabled } = useBuilderStore()
+    const { hardwareNodes, addVM, removeVM, updateVM, reorderVMs, tailscaleEnabled } = useBuilderStore()
     const node = hardwareNodes.find(n => n.id === nodeId)
     const vms = node?.vms || []
     const hostComponents = node?.internal_components || []
@@ -165,6 +417,21 @@ export function VMManager({ nodeId }: Props) {
     const cancelEdit = () => {
         setEditingVmId(null)
         setEditVM({})
+    }
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    )
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+
+        const oldIndex = vms.findIndex(v => v.id === active.id)
+        const newIndex = vms.findIndex(v => v.id === over.id)
+        const reordered = arrayMove(vms, oldIndex, newIndex)
+        reorderVMs(nodeId, reordered.map(v => v.id))
     }
 
     return (
@@ -292,189 +559,33 @@ export function VMManager({ nodeId }: Props) {
                 </p>
             )}
 
-            {vms.map(vm => {
-                const Icon = VM_TYPE_ICONS[vm.type] || Box
-                const isEditing = editingVmId === vm.id
-
-                if (isEditing) {
-                    return (
-                        <div key={vm.id} className="rounded-lg border border-primary/50 bg-muted/30 p-3 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <Label className="text-[10px]">Name</Label>
-                                    <Input
-                                        className="h-7 text-xs"
-                                        value={editVM.name}
-                                        onChange={e => setEditVM(p => ({ ...p, name: e.target.value }))}
-                                    />
-                                </div>
-                                <div>
-                                    <Label className="text-[10px]">Type</Label>
-                                    <select
-                                        className="w-full h-7 text-xs rounded-md border bg-background px-2"
-                                        value={editVM.type}
-                                        onChange={e => setEditVM(p => ({ ...p, type: e.target.value as VMType }))}
-                                    >
-                                        <option value="container">Container</option>
-                                        <option value="vm">VM</option>
-                                        <option value="lxc">LXC</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <Label className="text-[10px]">OS / Image</Label>
-                                    <Input
-                                        className="h-7 text-xs"
-                                        placeholder="Ubuntu 22.04"
-                                        value={editVM.os}
-                                        onChange={e => setEditVM(p => ({ ...p, os: e.target.value }))}
-                                    />
-                                </div>
-                                <div>
-                                    <Label className="text-[10px]">IP (auto if blank)</Label>
-                                    <Input
-                                        className="h-7 text-xs"
-                                        placeholder="auto"
-                                        value={editVM.ip}
-                                        onChange={e => setEditVM(p => ({ ...p, ip: e.target.value }))}
-                                    />
-                                </div>
-                            </div>
-                            {tailscaleEnabled && (
-                                <div>
-                                    <Label className="text-[10px] flex items-center gap-1 text-blue-400">
-                                        <Shield className="h-2.5 w-2.5" /> Tailscale IP
-                                    </Label>
-                                    <Input
-                                        className="h-7 text-xs font-mono text-blue-300 bg-blue-950/20 border-blue-500/30"
-                                        placeholder="auto"
-                                        value={editVM.tailscale_ip}
-                                        onChange={e => setEditVM(p => ({ ...p, tailscale_ip: e.target.value }))}
-                                    />
-                                </div>
-                            )}
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <Label className="text-[10px]">CPU Cores</Label>
-                                    <Input
-                                        className="h-7 text-xs"
-                                        type="number"
-                                        min={1}
-                                        max={32}
-                                        value={editVM.cpu_cores}
-                                        onChange={e => setEditVM(p => ({ ...p, cpu_cores: Number(e.target.value) }))}
-                                    />
-                                </div>
-                                <div>
-                                    <Label className="text-[10px]">RAM (MB)</Label>
-                                    <Input
-                                        className="h-7 text-xs"
-                                        type="number"
-                                        min={128}
-                                        step={128}
-                                        value={editVM.ram_mb}
-                                        onChange={e => setEditVM(p => ({ ...p, ram_mb: Number(e.target.value) }))}
-                                    />
-                                </div>
-                            </div>
-                            {hostComponents.length > 0 && (
-                                <PassthroughSelector
-                                    components={hostComponents}
-                                    selected={editVM.passthrough || []}
-                                    onToggle={id => setEditVM(p => ({ ...p, passthrough: togglePassthrough(p.passthrough || [], id) }))}
-                                    takenByOther={takenByOtherVM(vm.id)}
+            {vms.length > 0 && (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={vms.map(v => v.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-2">
+                            {vms.map(vm => (
+                                <SortableVM
+                                    key={vm.id}
+                                    vm={vm}
+                                    isEditing={editingVmId === vm.id}
+                                    editVM={editVM}
+                                    setEditVM={setEditVM}
+                                    saveEdit={saveEdit}
+                                    cancelEdit={cancelEdit}
+                                    startEditing={startEditing}
+                                    cycleStatus={cycleStatus}
+                                    removeVM={removeVM}
+                                    nodeId={nodeId}
+                                    hostComponents={hostComponents}
+                                    takenByOtherVM={takenByOtherVM}
+                                    togglePassthrough={togglePassthrough}
+                                    tailscaleEnabled={tailscaleEnabled}
                                 />
-                            )}
-                            <div className="flex gap-2 pt-1">
-                                <Button size="sm" className="h-7 text-xs flex-1" onClick={saveEdit}>
-                                    <Check className="h-3 w-3 mr-1" /> Save
-                                </Button>
-                                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={cancelEdit}>
-                                    <X className="h-3 w-3 mr-1" /> Cancel
-                                </Button>
-                            </div>
+                            ))}
                         </div>
-                    )
-                }
-
-                return (
-                    <div key={vm.id} className="flex items-start gap-2 rounded-lg border bg-background/60 p-2.5">
-                        <div className="mt-0.5 shrink-0">
-                            <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-semibold truncate">{vm.name}</span>
-                                <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0">
-                                    {vm.type.toUpperCase()}
-                                </Badge>
-                            </div>
-                            {vm.os && <p className="text-[10px] text-muted-foreground">{vm.os}</p>}
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                {vm.ip && (
-                                    <span className="flex items-center gap-0.5 text-[10px] text-primary font-mono">
-                                        <Wifi className="h-2.5 w-2.5" />{vm.ip}
-                                    </span>
-                                )}
-                                {tailscaleEnabled && vm.tailscale_ip && (
-                                    <span className="flex items-center gap-0.5 text-[10px] text-blue-400 font-mono">
-                                        <Shield className="h-2.5 w-2.5" />{vm.tailscale_ip}
-                                    </span>
-                                )}
-                                {vm.cpu_cores && (
-                                    <span className="text-[10px] text-muted-foreground">{vm.cpu_cores}vCPU</span>
-                                )}
-                                {vm.ram_mb && (
-                                    <span className="text-[10px] text-muted-foreground">{vm.ram_mb >= 1024 ? `${vm.ram_mb/1024}GB` : `${vm.ram_mb}MB`} RAM</span>
-                                )}
-                            </div>
-                            {(vm.passthrough?.length ?? 0) > 0 && (
-                                <div className="flex flex-wrap gap-0.5 mt-1">
-                                    {vm.passthrough!.map(id => {
-                                        const comp = hostComponents.find(c => c.id === id)
-                                        if (!comp) return null
-                                        return (
-                                            <span
-                                                key={id}
-                                                className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-px text-[9px] font-semibold"
-                                                title={comp.name}
-                                            >
-                                                {PT_TYPE_LABEL[comp.type] || comp.type.toUpperCase()}: {comp.name}
-                                            </span>
-                                        )
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                            {/* Status toggle */}
-                            <button
-                                onClick={() => cycleStatus(vm)}
-                                className={`h-4 w-4 rounded-full ${STATUS_COLORS[vm.status]} hover:opacity-80 transition-opacity`}
-                                title={`Status: ${vm.status}. Click to toggle.`}
-                            />
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 text-muted-foreground hover:text-primary"
-                                onClick={() => startEditing(vm)}
-                                title="Edit"
-                            >
-                                <Pencil className="h-3 w-3" />
-                            </Button>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                                onClick={() => removeVM(nodeId, vm.id)}
-                            >
-                                <Trash2 className="h-3 w-3" />
-                            </Button>
-                        </div>
-                    </div>
-                )
-            })}
+                    </SortableContext>
+                </DndContext>
+            )}
         </div>
     )
 }

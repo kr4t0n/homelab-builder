@@ -63,6 +63,10 @@ interface BuilderState {
   removeVM: (nodeId: string, vmId: string) => void;
   updateVM: (nodeId: string, vmId: string, updates: Partial<VirtualMachine>) => void;
 
+  // Reordering
+  reorderInternalComponents: (nodeId: string, orderedIds: string[]) => void;
+  reorderVMs: (nodeId: string, orderedIds: string[]) => void;
+
   // Actions
   autoAssignIP: (nodeId?: string) => string | null;
   reassignAllIPs: () => Promise<void>;
@@ -484,6 +488,52 @@ export const useBuilderStore = create<BuilderState>()(
               ? { ...n, vms: (n.vms || []).map(v => (v.id === vmId ? { ...v, ...updates } : v)) }
               : n,
           );
+          return {
+            hardwareNodes: updated,
+            nodes: state.nodes.map(n =>
+              n.id === nodeId
+                ? { ...n, data: { ...n.data, vms: updated.find(h => h.id === nodeId)?.vms } }
+                : n,
+            ),
+          };
+        });
+      },
+
+      reorderInternalComponents: (nodeId, orderedIds) => {
+        set(state => {
+          const updated = state.hardwareNodes.map(n => {
+            if (n.id !== nodeId) return n;
+            const comps = n.internal_components || [];
+            const byId = new Map(comps.map(c => [c.id, c]));
+            const reordered = orderedIds.map(id => byId.get(id)).filter(Boolean) as HardwareComponent[];
+            return { ...n, internal_components: reordered };
+          });
+          return {
+            hardwareNodes: updated,
+            nodes: state.nodes.map(n =>
+              n.id === nodeId
+                ? {
+                    ...n,
+                    data: {
+                      ...n.data,
+                      internal_components: updated.find(h => h.id === nodeId)?.internal_components,
+                    },
+                  }
+                : n,
+            ),
+          };
+        });
+      },
+
+      reorderVMs: (nodeId, orderedIds) => {
+        set(state => {
+          const updated = state.hardwareNodes.map(n => {
+            if (n.id !== nodeId) return n;
+            const vms = n.vms || [];
+            const byId = new Map(vms.map(v => [v.id, v]));
+            const reordered = orderedIds.map(id => byId.get(id)).filter(Boolean) as VirtualMachine[];
+            return { ...n, vms: reordered };
+          });
           return {
             hardwareNodes: updated,
             nodes: state.nodes.map(n =>
