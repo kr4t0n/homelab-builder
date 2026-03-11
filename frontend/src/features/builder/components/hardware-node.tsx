@@ -1,4 +1,5 @@
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react';
 import {
   Server,
@@ -177,6 +178,121 @@ const FALLBACK_CONFIG = {
   iconColor: 'text-gray-400',
   color: '#6b7280',
 };
+
+// ─── Validation tooltip ─────────────────────────────────────────────────────────
+function ValidationTooltip({
+  nodeIssues,
+  hasResourceWarning,
+  hasIpError,
+  cpuWarning,
+  ramWarning,
+  usedCpu,
+  totalCpu,
+  usedRam,
+  totalRamMB,
+  maxResourceUsage,
+}: {
+  nodeIssues: HardwareNodeValidationIssue[];
+  hasResourceWarning: boolean;
+  hasIpError: boolean;
+  cpuWarning: boolean;
+  ramWarning: boolean;
+  usedCpu: number;
+  totalCpu: number;
+  usedRam: number;
+  totalRamMB: number;
+  maxResourceUsage: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const isError = hasResourceWarning || hasIpError;
+
+  const handleEnter = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, left: rect.right });
+    }
+    setOpen(true);
+  };
+
+  return (
+    <div
+      ref={triggerRef}
+      onMouseEnter={handleEnter}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <AlertTriangle
+        className={cn(
+          'h-3.5 w-3.5 shrink-0 cursor-help',
+          isError ? 'text-destructive animate-pulse' : 'text-orange-500',
+        )}
+      />
+      {open && createPortal(
+        <div
+          className="fixed z-[9999] w-56 rounded-lg border bg-popover p-2.5 shadow-xl text-popover-foreground animate-in fade-in zoom-in-95 duration-100 pointer-events-auto"
+          style={{ top: pos.top, left: pos.left, transform: 'translateX(-100%)' }}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+        >
+          <p className={cn(
+            'text-[10px] font-bold uppercase tracking-wider mb-1.5',
+            isError ? 'text-destructive' : 'text-orange-500',
+          )}>
+            {isError ? 'Validation Errors' : 'Warnings'}
+          </p>
+
+          <div className="space-y-1.5">
+            {(hasResourceWarning || maxResourceUsage >= 0.8) && (
+              <div className="rounded border border-orange-500/20 bg-orange-500/5 px-2 py-1.5 space-y-0.5">
+                <p className="text-[10px] font-semibold text-orange-400">
+                  {hasResourceWarning ? 'Resource Limit Exceeded' : 'High Resource Usage'}
+                </p>
+                {(cpuWarning || (totalCpu > 0 && maxResourceUsage >= 0.8)) && (
+                  <p className="text-[9px] text-muted-foreground">
+                    CPU: {usedCpu} / {totalCpu} cores
+                  </p>
+                )}
+                {(ramWarning || (totalRamMB > 0 && maxResourceUsage >= 0.8)) && (
+                  <p className="text-[9px] text-muted-foreground">
+                    RAM: {Math.round(usedRam / 1024)}GB / {Math.round(totalRamMB / 1024)}GB
+                  </p>
+                )}
+              </div>
+            )}
+
+            {nodeIssues.map((issue, idx) => (
+              <div
+                key={idx}
+                className={cn(
+                  'rounded border px-2 py-1.5',
+                  issue.type === 'error'
+                    ? 'border-destructive/20 bg-destructive/5'
+                    : 'border-orange-500/20 bg-orange-500/5',
+                )}
+              >
+                <div className="flex items-start gap-1.5">
+                  <span className={cn(
+                    'mt-0.5 text-[8px] font-bold uppercase px-1 py-0.5 rounded shrink-0',
+                    issue.type === 'error'
+                      ? 'bg-destructive/20 text-destructive'
+                      : 'bg-orange-500/20 text-orange-500',
+                  )}>
+                    {issue.type}
+                  </span>
+                  <p className="text-[10px] text-muted-foreground leading-tight break-words">
+                    {issue.message}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
 
 // ─── VM chip ───────────────────────────────────────────────────────────────────
 const VM_TYPE_ICON: Record<string, React.ElementType> = {
@@ -412,16 +528,18 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
           </span>
 
           {hasWarning && (
-            <div title={tooltipLabel.trim()}>
-              <AlertTriangle
-                className={cn(
-                  'h-3.5 w-3.5 shrink-0 cursor-help',
-                  hasResourceWarning || hasIpError
-                    ? 'text-destructive animate-pulse'
-                    : 'text-orange-500',
-                )}
-              />
-            </div>
+            <ValidationTooltip
+              nodeIssues={nodeIssues}
+              hasResourceWarning={hasResourceWarning}
+              hasIpError={hasIpError}
+              cpuWarning={cpuWarning}
+              ramWarning={ramWarning}
+              usedCpu={usedCpu}
+              totalCpu={totalCpu}
+              usedRam={usedRam}
+              totalRamMB={totalRamMB}
+              maxResourceUsage={maxResourceUsage}
+            />
           )}
 
           <span className="relative flex h-2 w-2 shrink-0">
