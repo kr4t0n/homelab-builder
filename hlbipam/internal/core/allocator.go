@@ -297,50 +297,5 @@ func Allocate(req models.AllocateRequest) models.AllocateResponse {
 	resp.Routers = routerResults
 	resp.Nodes = results
 
-	if req.TailscaleEnabled {
-		assignTailscaleIPs(&resp, req)
-	}
-
 	return resp
-}
-
-// assignTailscaleIPs allocates Tailscale CGNAT IPs (100.100.x.y) for all
-// nodes and VMs that received a LAN IP. Routers also get a Tailscale IP
-// since they act as exit nodes / subnet routers in a typical Tailscale setup.
-func assignTailscaleIPs(resp *models.AllocateResponse, req models.AllocateRequest) {
-	nextOctet3 := 1
-	nextOctet4 := 1
-
-	advance := func() {
-		nextOctet4++
-		if nextOctet4 > 254 {
-			nextOctet4 = 1
-			nextOctet3++
-		}
-	}
-
-	tsIP := func() string {
-		ip := fmt.Sprintf("100.100.%d.%d", nextOctet3, nextOctet4)
-		advance()
-		return ip
-	}
-
-	for i := range resp.Routers {
-		resp.Routers[i].TailscaleIP = tsIP()
-	}
-
-	for i := range resp.Nodes {
-		if resp.Nodes[i].AssignedIP == "" {
-			continue
-		}
-		if NonNetworkTypes[resp.Nodes[i].Type] {
-			continue
-		}
-		resp.Nodes[i].TailscaleIP = tsIP()
-		for j := range resp.Nodes[i].VMs {
-			if resp.Nodes[i].VMs[j].AssignedIP != "" {
-				resp.Nodes[i].VMs[j].TailscaleIP = tsIP()
-			}
-		}
-	}
 }
