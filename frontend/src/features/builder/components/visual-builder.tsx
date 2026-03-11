@@ -715,9 +715,6 @@ function Flow() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <div className="px-2 py-1.5 text-[10px] text-muted-foreground">
-                  Assigns 100.100.x.y IPs to all network nodes, simulating a Tailscale tailnet mesh.
-                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 

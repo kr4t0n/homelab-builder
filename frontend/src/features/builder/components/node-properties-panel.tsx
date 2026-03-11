@@ -373,7 +373,7 @@ export function NodePropertiesPanel() {
                         )}
                       />
                       <p className="text-[10px] text-muted-foreground">
-                        Auto-assigned from 100.100.x.y on Reassign IPs, or set manually.
+                        Set manually or auto-assigned on Reassign IPs.
                       </p>
                     </div>
                   )}
