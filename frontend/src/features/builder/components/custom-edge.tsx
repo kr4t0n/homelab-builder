@@ -220,7 +220,7 @@ export function CustomEdge({
         >
           {/* Always show the speed/subnet badge if configured, or on hover */}
           <div
-            className={`px-1.5 py-0.5 rounded text-[9px] font-mono bg-background border transition-opacity ${!isHovered && !selected && speed === '1 GbE' && !subnet ? 'opacity-0' : 'opacity-100'}`}
+            className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-background border"
           >
             <span className="text-primary font-semibold">{speed}</span>
             {subnet && <span className="ml-1 text-muted-foreground">({subnet})</span>}
