@@ -114,14 +114,15 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 		detailsJSON, _ := json.Marshal(n.Details)
 
 		node := models.Node{
-			ID:      uid,
-			BuildID: buildID,
-			Type:    n.Type,
-			Name:    n.Name,
-			X:       n.X,
-			Y:       n.Y,
-			IP:      n.IP,
-			Details: detailsJSON,
+			ID:          uid,
+			BuildID:     buildID,
+			Type:        n.Type,
+			Name:        n.Name,
+			X:           n.X,
+			Y:           n.Y,
+			IP:          n.IP,
+			TailscaleIP: n.TailscaleIP,
+			Details:     detailsJSON,
 		}
 		if n.ParentID != nil && *n.ParentID != "" {
 			if parsed, err := uuid.Parse(*n.ParentID); err == nil {
@@ -141,15 +142,16 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 			}
 
 			vModel := models.VirtualMachine{
-				ID:       vmUID,
-				NodeID:   uid,
-				Name:     vm.Name,
-				Type:     vm.Type,
-				IP:       vm.IP,
-				OS:       vm.OS,
-				CPUCores: vm.CPUCores,
-				RAMMB:    vm.RAMMB,
-				Status:   vm.Status,
+				ID:          vmUID,
+				NodeID:      uid,
+				Name:        vm.Name,
+				Type:        vm.Type,
+				IP:          vm.IP,
+				TailscaleIP: vm.TailscaleIP,
+				OS:          vm.OS,
+				CPUCores:    vm.CPUCores,
+				RAMMB:       vm.RAMMB,
+				Status:      vm.Status,
 			}
 			if err := tx.Create(&vModel).Error; err != nil {
 				return err
@@ -247,6 +249,7 @@ type NodeDTO struct {
 	X                  float64        `json:"x"`
 	Y                  float64        `json:"y"`
 	IP                 string         `json:"ip"`
+	TailscaleIP        string         `json:"tailscale_ip,omitempty"`
 	SubnetMask         string         `json:"subnet_mask,omitempty"`
 	Gateway            string         `json:"gateway,omitempty"`
 	Details            map[string]any `json:"details"`
@@ -263,14 +266,15 @@ type ComponentDTO struct {
 }
 
 type VMDTO struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	Type     string  `json:"type"`
-	IP       string  `json:"ip"`
-	OS       string  `json:"os"`
-	CPUCores float64 `json:"cpu_cores"`
-	RAMMB    int     `json:"ram_mb"`
-	Status   string  `json:"status"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Type        string  `json:"type"`
+	IP          string  `json:"ip"`
+	TailscaleIP string  `json:"tailscale_ip,omitempty"`
+	OS          string  `json:"os"`
+	CPUCores    float64 `json:"cpu_cores"`
+	RAMMB       int     `json:"ram_mb"`
+	Status      string  `json:"status"`
 }
 
 type ServiceDTO struct {
@@ -341,15 +345,16 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 			idMap[node.ID] = newUID
 
 			newNode := models.Node{
-				ID:       newUID,
-				BuildID:  newBuild.ID,
-				Type:     node.Type,
-				Name:     node.Name,
-				X:        node.X,
-				Y:        node.Y,
-				IP:       node.IP,
-				Details:  node.Details,
-				ParentID: node.ParentID,
+				ID:          newUID,
+				BuildID:     newBuild.ID,
+				Type:        node.Type,
+				Name:        node.Name,
+				X:           node.X,
+				Y:           node.Y,
+				IP:          node.IP,
+				TailscaleIP: node.TailscaleIP,
+				Details:     node.Details,
+				ParentID:    node.ParentID,
 			}
 			if err := tx.Create(&newNode).Error; err != nil {
 				return err

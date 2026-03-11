@@ -61,26 +61,30 @@ type ipamNode struct {
 }
 
 type ipamRequest struct {
-	Routers []ipamRouter `json:"routers"`
-	Nodes   []ipamNode   `json:"nodes"`
+	Routers          []ipamRouter `json:"routers"`
+	Nodes            []ipamNode   `json:"nodes"`
+	TailscaleEnabled bool         `json:"tailscale_enabled,omitempty"`
 }
 
 type ipamVMResult struct {
-	ID         string `json:"id"`
-	AssignedIP string `json:"assigned_ip"`
+	ID          string `json:"id"`
+	AssignedIP  string `json:"assigned_ip"`
+	TailscaleIP string `json:"tailscale_ip,omitempty"`
 }
 
 type ipamNodeResult struct {
-	ID         string         `json:"id"`
-	Type       string         `json:"type"`
-	AssignedIP string         `json:"assigned_ip"`
-	VMs        []ipamVMResult `json:"vms,omitempty"`
+	ID          string         `json:"id"`
+	Type        string         `json:"type"`
+	AssignedIP  string         `json:"assigned_ip"`
+	TailscaleIP string         `json:"tailscale_ip,omitempty"`
+	VMs         []ipamVMResult `json:"vms,omitempty"`
 }
 
 type ipamRouterResult struct {
-	ID        string `json:"id"`
-	GatewayIP string `json:"gateway_ip"`
-	Subnet    string `json:"subnet"`
+	ID          string `json:"id"`
+	GatewayIP   string `json:"gateway_ip"`
+	Subnet      string `json:"subnet"`
+	TailscaleIP string `json:"tailscale_ip,omitempty"`
 }
 
 type ipamResponse struct {
@@ -100,6 +104,16 @@ var nonNetworkTypes = map[string]bool{
 // hlbIPAM for allocation, and writes the assigned IPs back.
 func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
+		// 0. Load build settings to check for tailscale_enabled
+		var build models.Build
+		if err := tx.Where("id = ?", buildID).First(&build).Error; err != nil {
+			return err
+		}
+		var buildSettings struct {
+			TailscaleEnabled bool `json:"tailscale_enabled"`
+		}
+		_ = json.Unmarshal(build.Settings, &buildSettings)
+
 		// 1. Load nodes and edges
 		var nodes []models.Node
 		if err := tx.Preload("VirtualMachines").Where("build_id = ?", buildID).Find(&nodes).Error; err != nil {
@@ -165,8 +179,9 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 
 		// 3. Build hlbIPAM request
 		req := ipamRequest{
-			Routers: make([]ipamRouter, 0),
-			Nodes:   make([]ipamNode, 0, len(nodes)),
+			Routers:          make([]ipamRouter, 0),
+			Nodes:            make([]ipamNode, 0, len(nodes)),
+			TailscaleEnabled: buildSettings.TailscaleEnabled,
 		}
 
 		for _, n := range nodes {
@@ -238,40 +253,68 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 
 		// 5. Build a lookup from hlbIPAM results
 		ipByID := make(map[string]string, len(result.Nodes))
+		tsIPByID := make(map[string]string, len(result.Nodes))
 		vmIPByID := make(map[string]string)
+		vmTsIPByID := make(map[string]string)
 		for _, nr := range result.Nodes {
 			if nr.AssignedIP != "" {
 				ipByID[nr.ID] = nr.AssignedIP
+			}
+			if nr.TailscaleIP != "" {
+				tsIPByID[nr.ID] = nr.TailscaleIP
 			}
 			for _, vmr := range nr.VMs {
 				if vmr.AssignedIP != "" {
 					vmIPByID[vmr.ID] = vmr.AssignedIP
 				}
+				if vmr.TailscaleIP != "" {
+					vmTsIPByID[vmr.ID] = vmr.TailscaleIP
+				}
 			}
 		}
 
-		// Map router gateway IPs from hlbIPAM response
+		// Map router gateway IPs and Tailscale IPs from hlbIPAM response
 		routerIPByID := make(map[string]string, len(result.Routers))
+		routerTsIPByID := make(map[string]string, len(result.Routers))
 		for _, rr := range result.Routers {
 			if rr.GatewayIP != "" {
 				routerIPByID[rr.ID] = rr.GatewayIP
 			}
+			if rr.TailscaleIP != "" {
+				routerTsIPByID[rr.ID] = rr.TailscaleIP
+			}
 		}
 
-		// 6. Persist assigned IPs
+		// 6. Persist assigned IPs (LAN + Tailscale)
 		for i := range nodes {
 			nid := nodes[i].ID.String()
 			if ip, ok := ipByID[nid]; ok {
 				nodes[i].IP = ip
 			}
-			// Also update router gateway IPs from hlbIPAM
+			if tsIP, ok := tsIPByID[nid]; ok {
+				nodes[i].TailscaleIP = tsIP
+			}
 			if ip, ok := routerIPByID[nid]; ok {
 				nodes[i].IP = ip
 			}
+			if tsIP, ok := routerTsIPByID[nid]; ok {
+				nodes[i].TailscaleIP = tsIP
+			}
+
+			if !buildSettings.TailscaleEnabled {
+				nodes[i].TailscaleIP = ""
+			}
+
 			for j := range nodes[i].VirtualMachines {
 				vmid := nodes[i].VirtualMachines[j].ID.String()
 				if ip, ok := vmIPByID[vmid]; ok {
 					nodes[i].VirtualMachines[j].IP = ip
+				}
+				if tsIP, ok := vmTsIPByID[vmid]; ok {
+					nodes[i].VirtualMachines[j].TailscaleIP = tsIP
+				}
+				if !buildSettings.TailscaleEnabled {
+					nodes[i].VirtualMachines[j].TailscaleIP = ""
 				}
 			}
 

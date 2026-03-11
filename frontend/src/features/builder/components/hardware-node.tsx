@@ -35,6 +35,7 @@ type HardwareNodeData = {
   label: string;
   type: HardwareType;
   ip?: string;
+  tailscale_ip?: string;
   vms?: VirtualMachine[];
   internal_components?: HardwareComponent[];
   status?: 'online' | 'offline' | 'warning';
@@ -184,6 +185,7 @@ const VM_TYPE_COLOR: Record<string, string> = {
 function VmChip({ vm }: { vm: VirtualMachine }) {
   const Icon = VM_TYPE_ICON[vm.type] ?? Box;
   const colorClass = VM_TYPE_COLOR[vm.type] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
+  const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
 
   return (
     <div
@@ -200,6 +202,11 @@ function VmChip({ vm }: { vm: VirtualMachine }) {
         <div className={cn('text-[9px]', vm.ip ? 'opacity-90' : 'opacity-40 italic')}>
           {vm.ip || 'no IP'}
         </div>
+        {tailscaleEnabled && vm.tailscale_ip && (
+          <div className="text-[8px] text-blue-400 opacity-80">
+            TS: {vm.tailscale_ip}
+          </div>
+        )}
       </div>
       <div
         className={cn(
@@ -245,6 +252,7 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData = data as unknown as HardwareNodeData;
   const cfg = TYPE_CONFIG[nodeData.type] ?? FALLBACK_CONFIG;
   const Icon = cfg.icon;
+  const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
   const vms = nodeData.vms ?? [];
   const components = nodeData.internal_components ?? [];
   const hasVMs = vms.length > 0;
@@ -447,6 +455,23 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
                   )}
                 >
                   {nodeData.ip || 'unassigned'}
+                </span>
+              </div>
+            )}
+
+            {/* Tailscale IP */}
+            {tailscaleEnabled && isNetworkNode(nodeData.type) && (
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="text-[10px] text-blue-400 tracking-wide font-medium">
+                  TS:
+                </span>
+                <span
+                  className={cn(
+                    'font-mono text-[11px]',
+                    nodeData.tailscale_ip ? 'text-blue-400' : 'italic opacity-30 text-muted-foreground',
+                  )}
+                >
+                  {nodeData.tailscale_ip || 'not enrolled'}
                 </span>
               </div>
             )}

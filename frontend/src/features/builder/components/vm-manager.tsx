@@ -5,7 +5,7 @@ import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Label } from "../../../components/ui/label"
 import { Badge } from "../../../components/ui/badge"
-import { Plus, Trash2, Cpu, Box, Container, Wifi, Pencil, Check, X } from "lucide-react"
+import { Plus, Trash2, Cpu, Box, Container, Wifi, Pencil, Check, X, Shield } from "lucide-react"
 
 const VM_TYPE_ICONS: Record<VMType, React.ElementType> = {
     vm: Cpu,
@@ -24,7 +24,7 @@ interface Props {
 }
 
 export function VMManager({ nodeId }: Props) {
-    const { hardwareNodes, addVM, removeVM, updateVM } = useBuilderStore()
+    const { hardwareNodes, addVM, removeVM, updateVM, tailscaleEnabled } = useBuilderStore()
     const node = hardwareNodes.find(n => n.id === nodeId)
     const vms = node?.vms || []
 
@@ -37,6 +37,7 @@ export function VMManager({ nodeId }: Props) {
         name: '',
         os: '',
         ip: '',
+        tailscale_ip: '',
         cpu_cores: 1,
         ram_mb: 512,
     })
@@ -49,12 +50,13 @@ export function VMManager({ nodeId }: Props) {
             type: newVM.type as VMType || 'container',
             status: newVM.status as VirtualMachine['status'] || 'running',
             ip: newVM.ip || undefined,
+            tailscale_ip: newVM.tailscale_ip || undefined,
             os: newVM.os || undefined,
             cpu_cores: newVM.cpu_cores,
             ram_mb: newVM.ram_mb,
         })
         setIsAdding(false)
-        setNewVM({ type: 'container', status: 'running', name: '', os: '', ip: '', cpu_cores: 1, ram_mb: 512 })
+        setNewVM({ type: 'container', status: 'running', name: '', os: '', ip: '', tailscale_ip: '', cpu_cores: 1, ram_mb: 512 })
     }
 
     const cycleStatus = (vm: VirtualMachine) => {
@@ -73,6 +75,7 @@ export function VMManager({ nodeId }: Props) {
             type: vm.type,
             os: vm.os || '',
             ip: vm.ip || '',
+            tailscale_ip: vm.tailscale_ip || '',
             cpu_cores: vm.cpu_cores || 1,
             ram_mb: vm.ram_mb || 512,
         })
@@ -85,6 +88,7 @@ export function VMManager({ nodeId }: Props) {
             type: editVM.type as VMType || 'container',
             os: editVM.os || undefined,
             ip: editVM.ip || undefined,
+            tailscale_ip: editVM.tailscale_ip || undefined,
             cpu_cores: editVM.cpu_cores,
             ram_mb: editVM.ram_mb,
         })
@@ -159,6 +163,19 @@ export function VMManager({ nodeId }: Props) {
                             />
                         </div>
                     </div>
+                    {tailscaleEnabled && (
+                        <div>
+                            <Label className="text-[10px] flex items-center gap-1 text-blue-400">
+                                <Shield className="h-2.5 w-2.5" /> Tailscale IP (auto if blank)
+                            </Label>
+                            <Input
+                                className="h-7 text-xs font-mono text-blue-300 bg-blue-950/20 border-blue-500/30"
+                                placeholder="auto"
+                                value={newVM.tailscale_ip}
+                                onChange={e => setNewVM(p => ({ ...p, tailscale_ip: e.target.value }))}
+                            />
+                        </div>
+                    )}
                     <div className="grid grid-cols-2 gap-2">
                         <div>
                             <Label className="text-[10px]">CPU Cores</Label>
@@ -250,6 +267,19 @@ export function VMManager({ nodeId }: Props) {
                                     />
                                 </div>
                             </div>
+                            {tailscaleEnabled && (
+                                <div>
+                                    <Label className="text-[10px] flex items-center gap-1 text-blue-400">
+                                        <Shield className="h-2.5 w-2.5" /> Tailscale IP
+                                    </Label>
+                                    <Input
+                                        className="h-7 text-xs font-mono text-blue-300 bg-blue-950/20 border-blue-500/30"
+                                        placeholder="auto"
+                                        value={editVM.tailscale_ip}
+                                        onChange={e => setEditVM(p => ({ ...p, tailscale_ip: e.target.value }))}
+                                    />
+                                </div>
+                            )}
                             <div className="grid grid-cols-2 gap-2">
                                 <div>
                                     <Label className="text-[10px]">CPU Cores</Label>
@@ -299,10 +329,15 @@ export function VMManager({ nodeId }: Props) {
                                 </Badge>
                             </div>
                             {vm.os && <p className="text-[10px] text-muted-foreground">{vm.os}</p>}
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                                 {vm.ip && (
                                     <span className="flex items-center gap-0.5 text-[10px] text-primary font-mono">
                                         <Wifi className="h-2.5 w-2.5" />{vm.ip}
+                                    </span>
+                                )}
+                                {tailscaleEnabled && vm.tailscale_ip && (
+                                    <span className="flex items-center gap-0.5 text-[10px] text-blue-400 font-mono">
+                                        <Shield className="h-2.5 w-2.5" />{vm.tailscale_ip}
                                     </span>
                                 )}
                                 {vm.cpu_cores && (

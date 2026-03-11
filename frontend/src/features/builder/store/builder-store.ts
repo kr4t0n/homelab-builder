@@ -82,6 +82,12 @@ interface BuilderState {
   };
   setEdgePreferences: (prefs: Partial<BuilderState['edgePreferences']>) => void;
 
+  // Tailscale VPN
+  tailscaleEnabled: boolean;
+  setTailscaleEnabled: (enabled: boolean) => void;
+  tailscaleViewActive: boolean;
+  setTailscaleViewActive: (active: boolean) => void;
+
   // Network Validation
   validationIssues: HardwareNodeValidationIssue[];
   validateNetwork: () => Promise<void>;
@@ -129,6 +135,8 @@ export const useBuilderStore = create<BuilderState>()(
         lineStyle: 'step',
       },
       validationIssues: [],
+      tailscaleEnabled: false,
+      tailscaleViewActive: false,
       availableServices: [],
       fetchServices: async () => {
         try {
@@ -143,6 +151,12 @@ export const useBuilderStore = create<BuilderState>()(
         set(state => ({
           edgePreferences: { ...state.edgePreferences, ...prefs },
         })),
+
+      setTailscaleEnabled: enabled => {
+        set({ tailscaleEnabled: enabled });
+        setTimeout(() => get().reassignAllIPs(), 0);
+      },
+      setTailscaleViewActive: active => set({ tailscaleViewActive: active }),
 
       projectName: 'My Homelab',
       projectThumbnail: '',
@@ -271,6 +285,7 @@ export const useBuilderStore = create<BuilderState>()(
           id: newId,
           name: `${orig.name} (copy)`,
           ip: '',
+          tailscale_ip: '',
           x: orig.x + 40,
           y: orig.y + 40,
           vms: [],
@@ -554,19 +569,29 @@ export const useBuilderStore = create<BuilderState>()(
           // blob, so nothing is lost and IPs are always fresh.
           const build = await buildApi.get(currentBuildId);
 
-          // Build a lookup: "id" → { nodeIp, vmIps }
+          // Build a lookup: "id" → { nodeIp, tailscaleIp, vmIps }
           type VmIpMap = Map<string, string>;
+          type VmTsIpMap = Map<string, string>;
           interface NodeIpEntry {
             nodeIp: string;
+            tailscaleIp: string;
             vmMap: VmIpMap;
+            vmTsMap: VmTsIpMap;
           }
           const ipById = new Map<string, NodeIpEntry>();
           ((build as any).nodes ?? []).forEach((n: any) => {
             const vmIps: VmIpMap = new Map();
+            const vmTsIps: VmTsIpMap = new Map();
             (n.virtual_machines ?? []).forEach((vm: any) => {
               if (vm.ip) vmIps.set(vm.id, vm.ip);
+              if (vm.tailscale_ip) vmTsIps.set(vm.id, vm.tailscale_ip);
             });
-            ipById.set(n.id, { nodeIp: n.ip, vmMap: vmIps });
+            ipById.set(n.id, {
+              nodeIp: n.ip,
+              tailscaleIp: n.tailscale_ip || '',
+              vmMap: vmIps,
+              vmTsMap: vmTsIps,
+            });
           });
 
           // Patch local state
@@ -576,7 +601,12 @@ export const useBuilderStore = create<BuilderState>()(
             return {
               ...hn,
               ip: entry.nodeIp,
-              vms: hn.vms?.map(vm => ({ ...vm, ip: entry.vmMap.get(vm.id) || vm.ip })),
+              tailscale_ip: entry.tailscaleIp,
+              vms: hn.vms?.map(vm => ({
+                ...vm,
+                ip: entry.vmMap.get(vm.id) || vm.ip,
+                tailscale_ip: entry.vmTsMap.get(vm.id) || vm.tailscale_ip,
+              })),
             };
           });
 
@@ -588,9 +618,11 @@ export const useBuilderStore = create<BuilderState>()(
               data: {
                 ...rfn.data,
                 ip: entry.nodeIp,
+                tailscale_ip: entry.tailscaleIp,
                 vms: (Array.isArray(rfn.data?.vms) ? rfn.data.vms : []).map((vm: any) => ({
                   ...vm,
                   ip: entry.vmMap.get(vm.id) || vm.ip,
+                  tailscale_ip: entry.vmTsMap.get(vm.id) || vm.tailscale_ip,
                 })),
               },
             };
@@ -665,9 +697,13 @@ export const useBuilderStore = create<BuilderState>()(
           type: n.type as HardwareType,
           name: n.name,
           ip: n.ip,
+          tailscale_ip: n.tailscale_ip || '',
           x: n.x || 0,
           y: n.y || 0,
-          vms: n.virtual_machines || [],
+          vms: (n.virtual_machines || []).map((vm: any) => ({
+            ...vm,
+            tailscale_ip: vm.tailscale_ip || '',
+          })),
           internal_components: n.internal_components || [],
           details: typeof n.details === 'string' ? JSON.parse(n.details) : n.details || {},
         }));
@@ -704,6 +740,7 @@ export const useBuilderStore = create<BuilderState>()(
           edges: rfEdges,
           boughtItems: settings.boughtItems || [],
           showBought: settings.showBought || false,
+          tailscaleEnabled: settings.tailscale_enabled || false,
         });
       },
 
@@ -721,6 +758,7 @@ export const useBuilderStore = create<BuilderState>()(
             x: rfn.position.x,
             y: rfn.position.y,
             ip: rfn.data?.ip || hw.ip || '',
+            tailscale_ip: rfn.data?.tailscale_ip || hw.tailscale_ip || '',
             details: rfn.data?.details || hw.details || {},
             vms: rfn.data?.vms || hw.vms || [],
             internal_components: rfn.data?.internal_components || hw.internal_components || [],
@@ -743,6 +781,7 @@ export const useBuilderStore = create<BuilderState>()(
           settings: {
             boughtItems: state.boughtItems,
             showBought: state.showBought,
+            tailscale_enabled: state.tailscaleEnabled,
           },
         };
       },
@@ -772,6 +811,7 @@ export const useBuilderStore = create<BuilderState>()(
         boughtItems: state.boughtItems,
         showBought: state.showBought,
         projectName: state.projectName,
+        tailscaleEnabled: state.tailscaleEnabled,
       }),
     },
   ),

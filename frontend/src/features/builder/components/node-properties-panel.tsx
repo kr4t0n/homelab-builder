@@ -13,8 +13,10 @@ import {
   Lock,
   Unlock,
   ChevronDown,
+  Shield,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '../../../lib/utils';
 import type { HardwareType } from '../../../types';
 import { VMManager } from './vm-manager';
 import { InternalComponentManager } from './internal-component-manager';
@@ -37,6 +39,7 @@ export function NodePropertiesPanel() {
 
   const [name, setName] = useState('');
   const [ip, setIp] = useState('');
+  const [tailscaleIp, setTailscaleIp] = useState('');
   const [mask, setMask] = useState('');
   const [gateway, setGateway] = useState('');
   const [dhcpEnabled, setDhcpEnabled] = useState(false);
@@ -50,7 +53,7 @@ export function NodePropertiesPanel() {
   const [ramUnit, setRamUnit] = useState<'GB' | 'TB'>('GB');
   const [storageUnit, setStorageUnit] = useState<'GB' | 'TB'>('GB');
 
-  const [errors, setErrors] = useState<{ ip?: string; mask?: string; gateway?: string }>({});
+  const [errors, setErrors] = useState<{ ip?: string; tailscaleIp?: string; mask?: string; gateway?: string }>({});
   const [netOpen, setNetOpen] = useState(false);
 
   const selectedNode = hardwareNodes.find(n => n.id === selectedNodeId);
@@ -58,6 +61,7 @@ export function NodePropertiesPanel() {
   const validate = () => {
     const newErrors: typeof errors = {};
     if (ip && !IP_REGEX.test(ip)) newErrors.ip = 'Invalid IPv4';
+    if (tailscaleIp && !IP_REGEX.test(tailscaleIp)) newErrors.tailscaleIp = 'Invalid IPv4';
     if (mask && !IP_REGEX.test(mask)) newErrors.mask = 'Invalid mask';
     if (gateway && !IP_REGEX.test(gateway)) newErrors.gateway = 'Invalid gateway';
     setErrors(newErrors);
@@ -69,6 +73,7 @@ export function NodePropertiesPanel() {
     if (selectedNode) {
       if (name !== selectedNode.name) setName(selectedNode.name);
       if (ip !== (selectedNode.ip || '')) setIp(selectedNode.ip || '');
+      if (tailscaleIp !== (selectedNode.tailscale_ip || '')) setTailscaleIp(selectedNode.tailscale_ip || '');
       if (mask !== (selectedNode.subnet_mask || '')) setMask(selectedNode.subnet_mask || '');
       if (gateway !== (selectedNode.gateway || '')) setGateway(selectedNode.gateway || '');
       if (dhcpEnabled !== (selectedNode.details?.dhcp_enabled ?? true))
@@ -141,6 +146,7 @@ export function NodePropertiesPanel() {
         updateHardware(selectedNode.id, {
           name,
           ip,
+          tailscale_ip: tailscaleIp,
           subnet_mask: mask,
           gateway,
           details: {
@@ -161,6 +167,7 @@ export function NodePropertiesPanel() {
   }, [
     name,
     ip,
+    tailscaleIp,
     mask,
     gateway,
     dhcpEnabled,
@@ -196,6 +203,7 @@ export function NodePropertiesPanel() {
     }
   };
 
+  const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
   const isRouter = selectedNode.type === 'router';
   const supportsVMs = canNodeHostVMs(selectedNode.type);
   const isNetworked = isNetworkNode(selectedNode.type);
@@ -338,6 +346,37 @@ export function NodePropertiesPanel() {
                         : 'This IP can be overwritten by Auto Assign if DHCP is enabled.'}
                     </p>
                   </div>
+
+                  {/* Tailscale IP */}
+                  {tailscaleEnabled && isNetworked && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="tailscale-ip" className="flex items-center gap-1.5 text-blue-400">
+                          <Shield className="h-3 w-3" />
+                          Tailscale IP
+                        </Label>
+                        {errors.tailscaleIp && (
+                          <span className="text-[10px] text-destructive flex items-center">
+                            <AlertCircle className="h-3 w-3 mr-0.5" />
+                            {errors.tailscaleIp}
+                          </span>
+                        )}
+                      </div>
+                      <Input
+                        id="tailscale-ip"
+                        value={tailscaleIp}
+                        onChange={e => setTailscaleIp(e.target.value)}
+                        placeholder="100.100.1.1"
+                        className={cn(
+                          'font-mono text-blue-300 bg-blue-950/20 border-blue-500/30 focus-visible:ring-blue-500/50',
+                          errors.tailscaleIp ? 'border-destructive focus-visible:ring-destructive' : '',
+                        )}
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Auto-assigned from 100.100.x.y on Reassign IPs, or set manually.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Router-specific: Subnet Mask + Gateway */}
                   {isRouter && (

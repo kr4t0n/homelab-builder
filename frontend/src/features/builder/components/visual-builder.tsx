@@ -20,8 +20,9 @@ import { HardwareNode as HardwareNodeComponent } from './hardware-node';
 import { NodePropertiesPanel } from './node-properties-panel';
 import { LiveResourceDashboard } from './live-resource-dashboard';
 import { Button } from '../../../components/ui/button';
-import { Wand2, Menu, Save, Folder, Download, LogOut, Route } from 'lucide-react';
+import { Wand2, Menu, Save, Folder, Download, LogOut, Route, Shield } from 'lucide-react';
 import type { HardwareType, HardwareNode } from '../../../types';
+import { cn } from '../../../lib/utils';
 import { buildApi } from '../api/builds';
 import { nodeHasDynamicPorts, canNodeBeNested, canNodeHostNested, canNodeConnectToAny } from '../../../lib/hardware-config';
 import { getNodePortCount } from '../lib/port-count';
@@ -38,6 +39,7 @@ import {
 } from '../../../components/ui/dropdown-menu';
 
 import { CustomEdge } from './custom-edge';
+import { TailscaleMeshOverlay, TailscaleStatusBadge } from './tailscale-mesh-overlay';
 
 const nodeTypes: NodeTypes = {
   hardware: HardwareNodeComponent,
@@ -159,6 +161,10 @@ function Flow() {
     validateNetwork,
     edgePreferences,
     setEdgePreferences,
+    tailscaleEnabled,
+    setTailscaleEnabled,
+    tailscaleViewActive,
+    setTailscaleViewActive,
     undo,
     redo,
   } = useBuilderStore();
@@ -565,6 +571,7 @@ function Flow() {
 
       <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
         <LiveResourceDashboard />
+        <TailscaleStatusBadge />
 
         <ReactFlow
           nodes={nodes}
@@ -596,6 +603,7 @@ function Flow() {
         >
           <Background gap={20} size={1} color="#A1A1AA" style={{ opacity: 0.25 }} />
           <Controls />
+          <TailscaleMeshOverlay />
 
           <Panel position="top-left" className="flex gap-2 items-center">
             <DropdownMenu>
@@ -654,6 +662,64 @@ function Flow() {
               <Wand2 className="mr-2 h-4 w-4" />
               Reassign IPs
             </Button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={tailscaleEnabled ? 'default' : 'outline'}
+                  size="sm"
+                  className={cn(
+                    'h-10 w-37.5',
+                    tailscaleEnabled
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-card',
+                  )}
+                >
+                  <Shield className="mr-2 h-4 w-4 shrink-0" />
+                  Tailscale
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuLabel>Tailscale VPN</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setTailscaleEnabled(!tailscaleEnabled)}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <span>{tailscaleEnabled ? 'Disable' : 'Enable'} Tailscale</span>
+                    <span className={cn(
+                      'text-[10px] px-1.5 py-0.5 rounded-full',
+                      tailscaleEnabled
+                        ? 'bg-blue-500/20 text-blue-400'
+                        : 'bg-muted text-muted-foreground',
+                    )}>
+                      {tailscaleEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+                {tailscaleEnabled && (
+                  <DropdownMenuItem
+                    onClick={() => setTailscaleViewActive(!tailscaleViewActive)}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span>Mesh Overlay View</span>
+                      <span className={cn(
+                        'text-[10px] px-1.5 py-0.5 rounded-full',
+                        tailscaleViewActive
+                          ? 'bg-blue-500/20 text-blue-400'
+                          : 'bg-muted text-muted-foreground',
+                      )}>
+                        {tailscaleViewActive ? 'ON' : 'OFF'}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <div className="px-2 py-1.5 text-[10px] text-muted-foreground">
+                  Assigns 100.100.x.y IPs to all network nodes, simulating a Tailscale tailnet mesh.
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

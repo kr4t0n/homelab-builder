@@ -298,6 +298,18 @@ Each node type maps to a fixed IP offset block within a `/24` subnet:
 
 Non-network types (`disk`, `gpu`, `hba`, `pcie`, `pdu`, `ups`) are never assigned IPs even when connected to a router.
 
+### Tailscale VPN Support
+
+When `tailscale_enabled` is true in the build settings, nodes and VMs receive a Tailscale IP
+from the CGNAT range `100.100.x.y` in addition to their LAN IP. This is assigned by the
+hlbIPAM allocator alongside the regular allocation.
+
+- `Node.TailscaleIP` and `VirtualMachine.TailscaleIP` store the assigned addresses
+- The frontend builder has a **Tailscale** toggle button and a **Mesh Overlay View** that draws
+  dashed blue lines between all enrolled nodes to visualize the full-mesh VPN topology
+- Build settings carry `tailscale_enabled` which is read by the IP service and forwarded to
+  hlbIPAM as `tailscale_enabled` in the allocate request
+
 ### GORM Tag Requirements
 
 All primary keys use PostgreSQL-native UUID generation:
