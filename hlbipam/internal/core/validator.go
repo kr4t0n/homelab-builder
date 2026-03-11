@@ -89,13 +89,18 @@ func Validate(req models.AllocateRequest) models.ValidateResponse {
 					continue
 				}
 				visited[neighborID] = true
+
+				entry, ok := nodeIndex[neighborID]
+				if ok && entry.dto.Type == "internet" {
+					continue
+				}
+
 				queue = append(queue, neighborID)
 
 				if _, isRouter := routerSubnet[neighborID]; isRouter {
 					continue
 				}
 
-				entry, ok := nodeIndex[neighborID]
 				if !ok {
 					continue
 				}

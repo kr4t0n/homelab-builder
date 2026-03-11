@@ -180,17 +180,22 @@ func Allocate(req models.AllocateRequest) models.AllocateResponse {
 					continue
 				}
 
-				entry, ok := nodeIndex[neighborID]
-				if !ok {
-					queue = append(queue, neighborID)
-					continue
-				}
-				n := entry.dto
+			entry, ok := nodeIndex[neighborID]
+			if !ok {
 				queue = append(queue, neighborID)
+				continue
+			}
+			n := entry.dto
 
-				if NonNetworkTypes[n.Type] {
-					continue
-				}
+			if n.Type == "internet" {
+				continue
+			}
+
+			queue = append(queue, neighborID)
+
+			if NonNetworkTypes[n.Type] {
+				continue
+			}
 
 				zone := GetZone(n.Type, sa.Zones)
 				pn := pendingNode{entry: entry, dto: n}
