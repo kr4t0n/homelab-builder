@@ -350,7 +350,7 @@ function VmChip({ vm, components }: { vm: VirtualMachine; components?: HardwareC
                 className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-px text-[7px] font-semibold leading-tight"
                 title={c.name}
               >
-                {PT_TYPE_LABEL[c.type] || c.type.toUpperCase()}
+                {PT_TYPE_LABEL[c.type] || c.type.toUpperCase()}: {c.name}
               </span>
             ))}
           </div>
