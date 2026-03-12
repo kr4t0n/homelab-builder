@@ -48,20 +48,12 @@ func Validate(req models.AllocateRequest) models.ValidateResponse {
 		routerSubnet[r.ID] = i
 	}
 
-	globalIPs := make(map[string]string, totalNodes*2)
-
-	for i := range req.Routers {
-		r := &req.Routers[i]
-		if r.GatewayIP != "" {
-			if owner, exists := globalIPs[r.GatewayIP]; exists {
-				addError(&resp, r.ID, fmt.Sprintf("gateway IP %s conflicts with %s", r.GatewayIP, owner))
-			} else {
-				globalIPs[r.GatewayIP] = r.ID
-			}
-		}
-	}
-
 	visited := make(map[string]bool, totalNodes+len(req.Routers))
+
+	routerByID := make(map[string]*models.RouterDTO, len(req.Routers))
+	for i := range req.Routers {
+		routerByID[req.Routers[i].ID] = &req.Routers[i]
+	}
 
 	for ri := range req.Routers {
 		r := &req.Routers[ri]
@@ -70,11 +62,17 @@ func Validate(req models.AllocateRequest) models.ValidateResponse {
 		}
 		visited[r.ID] = true
 
+		segmentIPs := make(map[string]string)
+
+		if r.GatewayIP != "" {
+			segmentIPs[r.GatewayIP] = r.ID
+		}
+
 		network, capacity, _, err := utils.ParseCIDR(r.Subnet)
 		if err != nil {
 			network, capacity, _, _ = utils.ParseCIDR(r.GatewayIP + "/24")
 		}
-		
+
 		sa := NewSubnetAllocator(r.Subnet, r.GatewayIP, zones, r.DHCPEnabled)
 
 		queue := make([]string, 0, totalNodes)
@@ -97,7 +95,14 @@ func Validate(req models.AllocateRequest) models.ValidateResponse {
 
 				queue = append(queue, neighborID)
 
-				if _, isRouter := routerSubnet[neighborID]; isRouter {
+				if peerRouter, isRouter := routerByID[neighborID]; isRouter {
+					if gw := peerRouter.GatewayIP; gw != "" {
+						if owner, exists := segmentIPs[gw]; exists {
+							addError(&resp, neighborID, fmt.Sprintf("gateway IP %s conflicts with %s", gw, owner))
+						} else {
+							segmentIPs[gw] = neighborID
+						}
+					}
 					continue
 				}
 
@@ -130,10 +135,10 @@ func Validate(req models.AllocateRequest) models.ValidateResponse {
 					addError(&resp, n.ID, fmt.Sprintf("IP %s falls within DHCP range %s–%s", ip, utils.Uint32ToIP(sa.DHCPStart), utils.Uint32ToIP(sa.DHCPEnd)))
 				}
 
-				if owner, exists := globalIPs[ip]; exists {
+				if owner, exists := segmentIPs[ip]; exists {
 					addError(&resp, n.ID, fmt.Sprintf("IP %s conflicts with %s", ip, owner))
 				} else {
-					globalIPs[ip] = n.ID
+					segmentIPs[ip] = n.ID
 				}
 
 				for j := range n.VMs {
@@ -153,10 +158,10 @@ func Validate(req models.AllocateRequest) models.ValidateResponse {
 					if sa.DHCPStart > 0 && vmUint >= sa.DHCPStart && vmUint <= sa.DHCPEnd {
 						addError(&resp, vm.ID, fmt.Sprintf("VM IP %s falls within DHCP range %s–%s", vmIP, utils.Uint32ToIP(sa.DHCPStart), utils.Uint32ToIP(sa.DHCPEnd)))
 					}
-					if owner, exists := globalIPs[vmIP]; exists {
+					if owner, exists := segmentIPs[vmIP]; exists {
 						addError(&resp, vm.ID, fmt.Sprintf("VM IP %s conflicts with %s", vmIP, owner))
 					} else {
-						globalIPs[vmIP] = vm.ID
+						segmentIPs[vmIP] = vm.ID
 					}
 				}
 			}
