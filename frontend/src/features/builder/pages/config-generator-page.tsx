@@ -5,6 +5,7 @@ import {
   generateAnsiblePlaybook,
   generateTraefikLabels,
   generateIpPlan,
+  generateK8sManifests,
 } from '../lib/config-generator';
 // allocateIPs removed
 import type { IpAllocatorOptions } from '../lib/config-generator'; // Use type from lib
@@ -34,7 +35,8 @@ type Tab =
   | 'ansible-playbook'
   | 'nginx'
   | 'traefik'
-  | 'ip-plan';
+  | 'ip-plan'
+  | 'k8s-manifests';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType; ext: string }[] = [
   { id: 'docker-compose', label: 'Docker Compose', icon: Package, ext: 'docker-compose.yml' },
@@ -44,6 +46,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; ext: string }[] =
   { id: 'nginx', label: 'Nginx Config', icon: Globe, ext: 'nginx.conf' },
   { id: 'traefik', label: 'Traefik Labels', icon: Globe, ext: 'traefik-labels.yml' },
   { id: 'ip-plan', label: 'IP Address Plan', icon: Network, ext: 'ip-plan.txt' },
+  { id: 'k8s-manifests', label: 'K8s Manifests', icon: Network, ext: 'k8s-manifests.yml' },
 ];
 
 // IpLegend removed as it relied on client-side calculation
@@ -95,7 +98,7 @@ function CodeBlock({ content, filename }: { content: string; filename: string })
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ConfigGeneratorPage() {
-  const { hardwareNodes, loadBuild, clearCurrentBuild } = useBuilderStore();
+  const { hardwareNodes, loadBuild, clearCurrentBuild, k8sClusters, k8sWorkloads } = useBuilderStore();
   const [activeTab, setActiveTab] = useState<Tab>('docker-compose');
   const [domain, setDomain] = useState('homelab.local');
   const [labName, setLabName] = useState('my-homelab');
@@ -220,7 +223,7 @@ export default function ConfigGeneratorPage() {
     return services;
   }, [hardwareNodes]);
 
-  const hasContent = allServices.length > 0 || hardwareNodes.length > 0;
+  const hasContent = allServices.length > 0 || hardwareNodes.length > 0 || k8sWorkloads.length > 0;
 
   function getContent(tab: Tab): string {
     const fallbacks = {
@@ -247,6 +250,8 @@ export default function ConfigGeneratorPage() {
         return generateTraefikLabels(allServices, domain);
       case 'ip-plan':
         return generateIpPlan(hardwareNodes, ipOpts);
+      case 'k8s-manifests':
+        return generateK8sManifests(k8sClusters, k8sWorkloads);
     }
   }
 

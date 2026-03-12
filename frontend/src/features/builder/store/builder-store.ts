@@ -21,6 +21,7 @@ import type {
   K8sCluster,
   K8sMember,
   K8sRole,
+  K8sWorkload,
 } from '../../../types';
 import { buildApi, type Build } from '../api/builds';
 import { api } from '../../../services/api';
@@ -98,6 +99,7 @@ interface BuilderState {
   // Kubernetes Clusters
   k8sClusters: K8sCluster[];
   k8sMembers: K8sMember[];
+  k8sWorkloads: K8sWorkload[];
   k8sOverlayActive: boolean;
   addK8sCluster: (cluster: K8sCluster) => void;
   removeK8sCluster: (id: string) => void;
@@ -105,6 +107,9 @@ interface BuilderState {
   enrollInK8s: (nodeId: string, vmId: string | null, clusterId: string, role: K8sRole) => void;
   unenrollFromK8s: (nodeId: string, vmId: string | null) => void;
   setK8sOverlayActive: (active: boolean) => void;
+  addK8sWorkload: (workload: K8sWorkload) => void;
+  removeK8sWorkload: (id: string) => void;
+  updateK8sWorkload: (id: string, updates: Partial<K8sWorkload>) => void;
 
   // Network Validation
   validationIssues: HardwareNodeValidationIssue[];
@@ -157,6 +162,7 @@ export const useBuilderStore = create<BuilderState>()(
       tailscaleViewActive: false,
       k8sClusters: [],
       k8sMembers: [],
+      k8sWorkloads: [],
       k8sOverlayActive: false,
       availableServices: [],
       fetchServices: async () => {
@@ -185,6 +191,7 @@ export const useBuilderStore = create<BuilderState>()(
         set(state => ({
           k8sClusters: state.k8sClusters.filter(c => c.id !== id),
           k8sMembers: state.k8sMembers.filter(m => m.cluster_id !== id),
+          k8sWorkloads: state.k8sWorkloads.filter(w => w.cluster_id !== id),
         })),
 
       updateK8sCluster: (id, updates) =>
@@ -210,6 +217,15 @@ export const useBuilderStore = create<BuilderState>()(
         })),
 
       setK8sOverlayActive: active => set({ k8sOverlayActive: active }),
+
+      addK8sWorkload: workload => set(state => ({ k8sWorkloads: [...state.k8sWorkloads, workload] })),
+
+      removeK8sWorkload: id => set(state => ({ k8sWorkloads: state.k8sWorkloads.filter(w => w.id !== id) })),
+
+      updateK8sWorkload: (id, updates) =>
+        set(state => ({
+          k8sWorkloads: state.k8sWorkloads.map(w => (w.id === id ? { ...w, ...updates } : w)),
+        })),
 
       projectName: 'My Homelab',
       projectThumbnail: '',
@@ -843,6 +859,7 @@ export const useBuilderStore = create<BuilderState>()(
           tailscaleEnabled: settings.tailscale_enabled || false,
           k8sClusters: settings.k8s_clusters || [],
           k8sMembers: settings.k8s_members || [],
+          k8sWorkloads: settings.k8s_workloads || [],
         });
       },
 
@@ -886,6 +903,7 @@ export const useBuilderStore = create<BuilderState>()(
             tailscale_enabled: state.tailscaleEnabled,
             k8s_clusters: state.k8sClusters,
             k8s_members: state.k8sMembers,
+            k8s_workloads: state.k8sWorkloads,
           },
         };
       },
@@ -918,6 +936,7 @@ export const useBuilderStore = create<BuilderState>()(
         tailscaleEnabled: state.tailscaleEnabled,
         k8sClusters: state.k8sClusters,
         k8sMembers: state.k8sMembers,
+        k8sWorkloads: state.k8sWorkloads,
       }),
     },
   ),

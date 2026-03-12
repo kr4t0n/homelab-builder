@@ -320,36 +320,42 @@ of Kubernetes.
 Defined in `frontend/src/types/index.ts`:
 
 ```ts
-K8sCluster { id, name, distro, pod_cidr, service_cidr, cni, api_server_port, color }
-K8sMember  { node_id, vm_id?, role, cluster_id }
+K8sCluster  { id, name, distro, pod_cidr, service_cidr, cni, api_server_port, color }
+K8sMember   { node_id, vm_id?, role, cluster_id }
+K8sWorkload { id, cluster_id, service_id?, name, namespace, replicas, cpu_request?, ram_request?, port?, ingress }
 ```
 
 - `K8sDistro` — only `'kubernetes'` (no k3s or other distros)
 - `K8sCNI` — `'flannel' | 'calico' | 'cilium'`
 - `K8sRole` — `'master' | 'worker'`
 - `K8sMember.vm_id` is present for VM enrollment, absent for bare-metal node enrollment
+- `K8sWorkload` — a service deployed to a cluster (not pinned to a specific node); managed via the K8s Cluster Manager dialog
 
 #### Persistence
 
-Clusters and members are serialized into `Build.Settings` as `k8s_clusters` and `k8s_members`.
-They travel through the standard build CRUD flow (`buildApi.update` / `buildApi.get`) — there
-are no dedicated K8s API endpoints.
+Clusters, members, and workloads are serialized into `Build.Settings` as `k8s_clusters`,
+`k8s_members`, and `k8s_workloads`. They travel through the standard build CRUD flow
+(`buildApi.update` / `buildApi.get`) — there are no dedicated K8s API endpoints.
 
 #### Store (builder-store.ts)
 
-State: `k8sClusters`, `k8sMembers`, `k8sOverlayActive`
+State: `k8sClusters`, `k8sMembers`, `k8sWorkloads`, `k8sOverlayActive`
 
 | Action | Purpose |
 |---|---|
 | `addK8sCluster` | Create a new cluster |
-| `removeK8sCluster` | Delete cluster and all its members |
+| `removeK8sCluster` | Delete cluster and all its members and workloads |
 | `updateK8sCluster` | Edit cluster fields |
 | `enrollInK8s` | Add or update a node/VM membership |
 | `unenrollFromK8s` | Remove a node/VM from its cluster |
 | `setK8sOverlayActive` | Toggle the cluster overlay view |
+| `addK8sWorkload` | Deploy a service to a cluster |
+| `removeK8sWorkload` | Remove a workload from its cluster |
+| `updateK8sWorkload` | Edit workload fields |
 
 `removeHardware` also cleans up `k8sMembers` for the deleted node.
-`loadBuild` restores clusters/members from `settings`; `getBuildData` includes them in the save payload.
+`removeK8sCluster` also cleans up `k8sWorkloads` for the deleted cluster.
+`loadBuild` restores clusters/members/workloads from `settings`; `getBuildData` includes them in the save payload.
 
 #### Frontend Components
 

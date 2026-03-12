@@ -214,6 +214,19 @@ export interface K8sMember {
   cluster_id: string;
 }
 
+export interface K8sWorkload {
+  id: string;
+  cluster_id: string;
+  service_id?: string;
+  name: string;
+  namespace: string;
+  replicas: number;
+  cpu_request?: number;
+  ram_request?: number;
+  port?: number;
+  ingress: boolean;
+}
+
 export type HardwareNodeValidationIssue = {
   node_id: string;
   message: string;

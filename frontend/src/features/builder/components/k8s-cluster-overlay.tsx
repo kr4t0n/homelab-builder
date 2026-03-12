@@ -30,11 +30,12 @@ import {
   Cloud,
   Crown,
   Cog,
+  Package,
 } from 'lucide-react';
 import { useBuilderStore } from '../store/builder-store';
 import { cn } from '../../../lib/utils';
 import { Button } from '../../../components/ui/button';
-import type { HardwareType, K8sCluster, K8sMember } from '../../../types';
+import type { HardwareType, K8sCluster, K8sMember, K8sWorkload } from '../../../types';
 
 const ICON_MAP: Partial<Record<HardwareType, React.ElementType>> = {
   router: Router,
@@ -142,6 +143,7 @@ function K8sOverlayInner() {
   const hardwareNodes = useBuilderStore(s => s.hardwareNodes);
   const k8sClusters = useBuilderStore(s => s.k8sClusters);
   const k8sMembers = useBuilderStore(s => s.k8sMembers);
+  const k8sWorkloads = useBuilderStore(s => s.k8sWorkloads);
   const setK8sOverlayActive = useBuilderStore(s => s.setK8sOverlayActive);
 
   useEffect(() => {
@@ -155,20 +157,21 @@ function K8sOverlayInner() {
   const { initialNodes, k8sEdges, clusterStats } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    const stats: { cluster: K8sCluster; masters: number; workers: number }[] = [];
+    const stats: { cluster: K8sCluster; masters: number; workers: number; workloads: number }[] = [];
 
     let clusterOffsetX = 0;
 
     for (const cluster of k8sClusters) {
       const members = k8sMembers.filter((m: K8sMember) => m.cluster_id === cluster.id);
-      if (members.length === 0) {
-        stats.push({ cluster, masters: 0, workers: 0 });
+      const clusterWorkloads = k8sWorkloads.filter(w => w.cluster_id === cluster.id);
+      if (members.length === 0 && clusterWorkloads.length === 0) {
+        stats.push({ cluster, masters: 0, workers: 0, workloads: 0 });
         continue;
       }
 
       const masters = members.filter(m => m.role === 'master');
       const workers = members.filter(m => m.role === 'worker');
-      stats.push({ cluster, masters: masters.length, workers: workers.length });
+      stats.push({ cluster, masters: masters.length, workers: workers.length, workloads: clusterWorkloads.length });
 
       const cx = clusterOffsetX + 400;
       const cy = 400;
@@ -235,7 +238,7 @@ function K8sOverlayInner() {
     }
 
     return { initialNodes: nodes, k8sEdges: edges, clusterStats: stats };
-  }, [hardwareNodes, k8sClusters, k8sMembers]);
+  }, [hardwareNodes, k8sClusters, k8sMembers, k8sWorkloads]);
 
   const [overlayNodes, setOverlayNodes] = useState<Node[]>(initialNodes);
   useEffect(() => setOverlayNodes(initialNodes), [initialNodes]);
@@ -246,6 +249,16 @@ function K8sOverlayInner() {
   );
 
   const totalMembers = k8sMembers.length;
+  const totalWorkloads = k8sWorkloads.length;
+
+  const workloadsByCluster = useMemo(() => {
+    const map = new Map<string, K8sWorkload[]>();
+    for (const w of k8sWorkloads) {
+      if (!map.has(w.cluster_id)) map.set(w.cluster_id, []);
+      map.get(w.cluster_id)!.push(w);
+    }
+    return map;
+  }, [k8sWorkloads]);
 
   return (
     <div className="absolute inset-0 z-50 bg-slate-950 flex flex-col">
@@ -262,9 +275,14 @@ function K8sOverlayInner() {
             <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
               {totalMembers} node{totalMembers !== 1 ? 's' : ''}
             </span>
+            {totalWorkloads > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
+                {totalWorkloads} workload{totalWorkloads !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            {clusterStats.map(({ cluster, masters, workers }) => (
+            {clusterStats.map(({ cluster, masters, workers, workloads }) => (
               <span
                 key={cluster.id}
                 className="flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px]"
@@ -277,7 +295,7 @@ function K8sOverlayInner() {
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: cluster.color }} />
                 {cluster.name}
                 <span className="text-slate-500">
-                  {masters}M / {workers}W
+                  {masters}M / {workers}W{workloads > 0 ? ` / ${workloads}svc` : ''}
                 </span>
               </span>
             ))}
@@ -294,26 +312,86 @@ function K8sOverlayInner() {
         </Button>
       </div>
 
-      <div className="flex-1">
-        <ReactFlow
-          nodes={overlayNodes}
-          edges={k8sEdges}
-          onNodesChange={onNodesChange}
-          nodeTypes={k8sNodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.3 }}
-          nodesDraggable={true}
-          nodesConnectable={false}
-          panOnDrag={true}
-          zoomOnScroll={true}
-          className="bg-slate-950"
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background gap={30} size={1} color="#1e293b" style={{ opacity: 0.6 }} />
-          <Controls
-            className="[&>button]:bg-slate-800! [&>button]:border-slate-700! [&>button]:text-slate-300! [&>button:hover]:bg-slate-700!"
-          />
-        </ReactFlow>
+      <div className="flex-1 flex">
+        <div className="flex-1">
+          <ReactFlow
+            nodes={overlayNodes}
+            edges={k8sEdges}
+            onNodesChange={onNodesChange}
+            nodeTypes={k8sNodeTypes}
+            fitView
+            fitViewOptions={{ padding: 0.3 }}
+            nodesDraggable={true}
+            nodesConnectable={false}
+            panOnDrag={true}
+            zoomOnScroll={true}
+            className="bg-slate-950"
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background gap={30} size={1} color="#1e293b" style={{ opacity: 0.6 }} />
+            <Controls
+              className="[&>button]:bg-slate-800! [&>button]:border-slate-700! [&>button]:text-slate-300! [&>button:hover]:bg-slate-700!"
+            />
+          </ReactFlow>
+        </div>
+
+        {totalWorkloads > 0 && (
+          <div className="w-64 border-l border-slate-800 bg-slate-900/60 overflow-y-auto shrink-0">
+            <div className="px-3 py-2.5 border-b border-slate-800 flex items-center gap-2">
+              <Package className="h-3.5 w-3.5 text-emerald-400" />
+              <span className="text-xs font-semibold text-slate-200">Workloads</span>
+              <span className="text-[10px] text-slate-500 ml-auto">{totalWorkloads}</span>
+            </div>
+            <div className="p-2 space-y-3">
+              {k8sClusters.map(cluster => {
+                const clusterWls = workloadsByCluster.get(cluster.id);
+                if (!clusterWls || clusterWls.length === 0) return null;
+
+                const namespaces = [...new Set(clusterWls.map(w => w.namespace))];
+
+                return (
+                  <div key={cluster.id}>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: cluster.color }} />
+                      <span className="text-[10px] font-semibold text-slate-300 truncate">{cluster.name}</span>
+                    </div>
+                    {namespaces.map(ns => {
+                      const nsWorkloads = clusterWls.filter(w => w.namespace === ns);
+                      return (
+                        <div key={ns} className="mb-2">
+                          {namespaces.length > 1 && (
+                            <span className="text-[9px] text-slate-500 font-mono px-1 block mb-0.5">ns/{ns}</span>
+                          )}
+                          <div className="space-y-0.5">
+                            {nsWorkloads.map(wl => (
+                              <div
+                                key={wl.id}
+                                className="rounded-md px-2 py-1.5 border border-slate-700/60"
+                                style={{ backgroundColor: `${cluster.color}08`, borderColor: `${cluster.color}25` }}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Package className="h-3 w-3 shrink-0" style={{ color: cluster.color }} />
+                                  <span className="text-[11px] font-medium text-slate-200 truncate">{wl.name}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5 text-[9px] text-slate-500">
+                                  <span>x{wl.replicas}</span>
+                                  {wl.port && <span className="font-mono">:{wl.port}</span>}
+                                  {wl.ingress && <span className="text-emerald-400 font-bold">ING</span>}
+                                  {wl.cpu_request ? <span>{wl.cpu_request}m</span> : null}
+                                  {wl.ram_request ? <span>{wl.ram_request}MB</span> : null}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-center gap-6 px-4 py-2 border-t border-slate-800 bg-slate-900/80 text-[10px] text-slate-500 shrink-0">
@@ -324,6 +402,10 @@ function K8sOverlayInner() {
         <span className="flex items-center gap-1.5">
           <Cog className="h-3 w-3 text-slate-400" />
           Worker Node
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Package className="h-3 w-3 text-emerald-400" />
+          Workload
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-6 h-px opacity-40" style={{ backgroundImage: 'repeating-linear-gradient(90deg, #8b5cf6 0, #8b5cf6 6px, transparent 6px, transparent 10px)' }} />
@@ -350,9 +432,15 @@ export function K8sClusterOverlay() {
 export function K8sStatusBadge() {
   const k8sClusters = useBuilderStore(s => s.k8sClusters);
   const k8sMembers = useBuilderStore(s => s.k8sMembers);
+  const k8sWorkloads = useBuilderStore(s => s.k8sWorkloads);
   const setK8sOverlayActive = useBuilderStore(s => s.setK8sOverlayActive);
 
   if (k8sClusters.length === 0) return null;
+
+  const parts: string[] = [];
+  parts.push(`${k8sClusters.length} cluster${k8sClusters.length !== 1 ? 's' : ''}`);
+  if (k8sMembers.length > 0) parts.push(`${k8sMembers.length} node${k8sMembers.length !== 1 ? 's' : ''}`);
+  if (k8sWorkloads.length > 0) parts.push(`${k8sWorkloads.length} svc`);
 
   return (
     <button
@@ -366,10 +454,7 @@ export function K8sStatusBadge() {
     >
       <Network className="h-3.5 w-3.5" />
       <span className="font-medium">K8s</span>
-      <span className="text-violet-400/70">
-        {k8sClusters.length} cluster{k8sClusters.length !== 1 ? 's' : ''}
-        {k8sMembers.length > 0 && ` / ${k8sMembers.length} node${k8sMembers.length !== 1 ? 's' : ''}`}
-      </span>
+      <span className="text-violet-400/70">{parts.join(' / ')}</span>
     </button>
   );
 }
