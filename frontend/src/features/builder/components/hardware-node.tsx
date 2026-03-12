@@ -535,7 +535,7 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
           selected ? 'scale-[1.02]' : 'hover:border-primary/50',
         )}
         style={{
-          borderTopColor: cfg.color,
+          borderTopColor: selected ? undefined : cfg.color,
           ...(dynamicMinWidth > 192 ? { minWidth: `${dynamicMinWidth}px` } : {}),
         }}
       >
