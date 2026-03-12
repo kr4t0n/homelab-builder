@@ -12,6 +12,7 @@ import {
   ConnectionMode,
 } from '@xyflow/react';
 import { toast } from 'sonner';
+import { toJpeg } from 'html-to-image';
 import '@xyflow/react/dist/style.css';
 import Joyride, { type CallBackProps, STATUS, type Step } from 'react-joyride';
 import { useBuilderStore } from '../store/builder-store';
@@ -208,27 +209,50 @@ function Flow() {
     setSaveStatus('saved');
   }, [currentBuildId]);
 
+  const captureCanvasThumbnail = useCallback(async (): Promise<string> => {
+    const viewport = reactFlowWrapper.current?.querySelector<HTMLElement>('.react-flow__viewport');
+    if (!viewport) return '';
+    try {
+      const bounds = reactFlowWrapper.current!.getBoundingClientRect();
+      return await toJpeg(viewport, {
+        quality: 0.7,
+        width: Math.round(bounds.width),
+        height: Math.round(bounds.height),
+        canvasWidth: 640,
+        canvasHeight: 360,
+        filter: (node: HTMLElement) => {
+          const cls = node.className?.toString?.() || '';
+          if (cls.includes('react-flow__controls')) return false;
+          if (cls.includes('react-flow__minimap')) return false;
+          return true;
+        },
+      });
+    } catch {
+      return '';
+    }
+  }, []);
+
   const saveProject = useCallback(async () => {
     if (!id) return;
     setSaveStatus('saving');
     try {
       const data = getBuildData();
+      const thumbnail = await captureCanvasThumbnail();
       await buildApi.update(id, {
-        name: projectName || 'Untitled Project', // Use store name
-        thumbnail: '',
+        name: projectName || 'Untitled Project',
+        thumbnail,
         ...data,
       });
       setSaveStatus('saved');
       lastSaveTime.current = Date.now();
 
-      // Trigger automatic validation after the changes have been safely persisted
       await validateNetwork();
     } catch (err) {
       console.error('Failed to save', err);
       setSaveStatus('error');
       toast.error('Failed to auto-save');
     }
-  }, [id, getBuildData, projectName, validateNetwork]);
+  }, [id, getBuildData, projectName, validateNetwork, captureCanvasThumbnail]);
 
   // Auto-save trigger
   useEffect(() => {
