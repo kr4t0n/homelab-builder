@@ -602,7 +602,7 @@ function Flow() {
           onPaneClick={() => selectNode(null)}
           connectionMode={ConnectionMode.Loose}
           fitView
-          attributionPosition="bottom-right"
+          proOptions={{ hideAttribution: true }}
           className="bg-background"
           defaultEdgeOptions={{
             type: 'custom',
