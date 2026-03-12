@@ -300,15 +300,82 @@ Non-network types (`disk`, `gpu`, `hba`, `pcie`, `pdu`, `ups`) are never assigne
 
 ### Tailscale VPN Support
 
-When `tailscale_enabled` is true in the build settings, nodes and VMs receive a Tailscale IP
-from the CGNAT range `100.100.x.y` in addition to their LAN IP. This is assigned by the
-hlbIPAM allocator alongside the regular allocation.
+Tailscale IPs are **manually entered** by the user — they are not auto-allocated by hlbIPAM
+or any other service. hlbIPAM only handles LAN IP allocation.
 
-- `Node.TailscaleIP` and `VirtualMachine.TailscaleIP` store the assigned addresses
+- `Node.TailscaleIP` and `VirtualMachine.TailscaleIP` store user-provided Tailscale addresses
 - The frontend builder has a **Tailscale** toggle button and a **Mesh Overlay View** that draws
   dashed blue lines between all enrolled nodes to visualize the full-mesh VPN topology
-- Build settings carry `tailscale_enabled` which is read by the IP service and forwarded to
-  hlbIPAM as `tailscale_enabled` in the allocate request
+- Build settings carry `tailscale_enabled` which controls UI visibility of Tailscale fields
+- `CalculateNetwork` never overwrites Tailscale IPs — they are preserved as-is during IP reassignment
+
+### Kubernetes Cluster Support
+
+Kubernetes clusters are a **frontend-only concept** — the backend stores them as opaque JSON
+in `Build.Settings` and never parses, validates, or acts on them. hlbIPAM has no awareness
+of Kubernetes.
+
+#### Data Model
+
+Defined in `frontend/src/types/index.ts`:
+
+```ts
+K8sCluster { id, name, distro, pod_cidr, service_cidr, cni, api_server_port, color }
+K8sMember  { node_id, vm_id?, role, cluster_id }
+```
+
+- `K8sDistro` — only `'kubernetes'` (no k3s or other distros)
+- `K8sCNI` — `'flannel' | 'calico' | 'cilium'`
+- `K8sRole` — `'master' | 'worker'`
+- `K8sMember.vm_id` is present for VM enrollment, absent for bare-metal node enrollment
+
+#### Persistence
+
+Clusters and members are serialized into `Build.Settings` as `k8s_clusters` and `k8s_members`.
+They travel through the standard build CRUD flow (`buildApi.update` / `buildApi.get`) — there
+are no dedicated K8s API endpoints.
+
+#### Store (builder-store.ts)
+
+State: `k8sClusters`, `k8sMembers`, `k8sOverlayActive`
+
+| Action | Purpose |
+|---|---|
+| `addK8sCluster` | Create a new cluster |
+| `removeK8sCluster` | Delete cluster and all its members |
+| `updateK8sCluster` | Edit cluster fields |
+| `enrollInK8s` | Add or update a node/VM membership |
+| `unenrollFromK8s` | Remove a node/VM from its cluster |
+| `setK8sOverlayActive` | Toggle the cluster overlay view |
+
+`removeHardware` also cleans up `k8sMembers` for the deleted node.
+`loadBuild` restores clusters/members from `settings`; `getBuildData` includes them in the save payload.
+
+#### Frontend Components
+
+| File | Purpose |
+|---|---|
+| `k8s-cluster-manager.tsx` | Dialog for creating/editing/removing clusters (name, distro, CIDRs, CNI, API port) |
+| `k8s-cluster-overlay.tsx` | Full-screen ReactFlow overlay showing cluster topology (masters in center, workers in circle); also exports `K8sStatusBadge` for the toolbar |
+| `hardware-node.tsx` | Renders a K8s badge (cluster name + role) on enrolled nodes |
+| `node-properties-panel.tsx` | `K8sEnrollmentSection` — cluster/role dropdowns for physical nodes |
+| `vm-manager.tsx` | `VmK8sBadge` — per-VM cluster enrollment |
+| `visual-builder.tsx` | Toolbar "Kubernetes" dropdown ("Manage Clusters", "Cluster Overlay View") |
+
+#### Enrollment Rules
+
+Only compute node types can be enrolled: `server`, `nas`, `pc`, `minipc`, `sbc`.
+Eligibility is determined by `isComputeNode()` in `frontend/src/lib/hardware-config.ts`.
+Both bare-metal nodes and their VMs can be enrolled independently.
+
+#### Cluster Defaults
+
+| Field | Default |
+|---|---|
+| Pod CIDR | `10.42.0.0/16` |
+| Service CIDR | `10.43.0.0/16` |
+| CNI | `flannel` |
+| API Server Port | `6443` |
 
 ### GORM Tag Requirements
 
