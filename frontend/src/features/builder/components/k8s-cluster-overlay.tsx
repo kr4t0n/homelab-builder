@@ -144,6 +144,14 @@ function K8sOverlayInner() {
   const k8sMembers = useBuilderStore(s => s.k8sMembers);
   const setK8sOverlayActive = useBuilderStore(s => s.setK8sOverlayActive);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setK8sOverlayActive(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setK8sOverlayActive]);
+
   const { initialNodes, k8sEdges, clusterStats } = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];

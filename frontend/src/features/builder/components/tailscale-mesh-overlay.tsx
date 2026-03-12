@@ -169,6 +169,14 @@ function TailscaleViewInner() {
   const hardwareNodes = useBuilderStore(s => s.hardwareNodes);
   const setTailscaleViewActive = useBuilderStore(s => s.setTailscaleViewActive);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTailscaleViewActive(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setTailscaleViewActive]);
+
   const { initialNodes, tsEdges, enrolledCount, vmCount } = useMemo(() => {
     const enrolled = hardwareNodes.filter(
       (hn: HWNode) => isNetworkNode(hn.type) && hn.tailscale_ip,
