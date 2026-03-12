@@ -159,7 +159,9 @@ function K8sOverlayInner() {
     const edges: Edge[] = [];
     const stats: { cluster: K8sCluster; masters: number; workers: number; workloads: number }[] = [];
 
-    let clusterOffsetX = 0;
+    const NODE_GAP_Y = 130;
+    const COLUMN_GAP_X = 400;
+    let clusterOffsetY = 0;
 
     for (const cluster of k8sClusters) {
       const members = k8sMembers.filter((m: K8sMember) => m.cluster_id === cluster.id);
@@ -173,28 +175,22 @@ function K8sOverlayInner() {
       const workers = members.filter(m => m.role === 'worker');
       stats.push({ cluster, masters: masters.length, workers: workers.length, workloads: clusterWorkloads.length });
 
-      const cx = clusterOffsetX + 400;
-      const cy = 400;
-      const radius = Math.max(200, members.length * 70);
-
       const masterIds: string[] = [];
+      const maxCol = Math.max(masters.length, workers.length);
+      const totalHeight = (maxCol - 1) * NODE_GAP_Y;
 
-      members.forEach((member, i) => {
+      const masterStartY = clusterOffsetY + (totalHeight - (masters.length - 1) * NODE_GAP_Y) / 2;
+      const workerStartY = clusterOffsetY + (totalHeight - (workers.length - 1) * NODE_GAP_Y) / 2;
+
+      const masterX = 100;
+      const workerX = 100 + COLUMN_GAP_X;
+
+      const pushMember = (member: K8sMember, x: number, y: number) => {
         const hw = hardwareNodes.find(n => n.id === member.node_id);
-        if (!hw) return;
-
+        if (!hw) return null;
         const isVm = !!member.vm_id;
         const vm = isVm ? hw.vms?.find(v => v.id === member.vm_id) : null;
         const nodeId = member.vm_id ? `${member.node_id}-${member.vm_id}` : member.node_id;
-
-        const angle = (2 * Math.PI * i) / members.length - Math.PI / 2;
-        const isMaster = member.role === 'master';
-
-        if (isMaster) masterIds.push(nodeId);
-
-        const x = isMaster ? cx : cx + radius * Math.cos(angle);
-        const y = isMaster ? cy + (masterIds.length - 1) * 120 : cy + radius * Math.sin(angle);
-
         nodes.push({
           id: nodeId,
           type: 'k8s',
@@ -210,14 +206,18 @@ function K8sOverlayInner() {
             vmType: vm?.type,
           } satisfies K8sNodeData,
         });
+        return nodeId;
+      };
+
+      masters.forEach((m, i) => {
+        const id = pushMember(m, masterX, masterStartY + i * NODE_GAP_Y);
+        if (id) masterIds.push(id);
       });
 
-      // Star topology: connect all workers to all masters
-      for (const masterId of masterIds) {
-        for (const member of workers) {
-          const hw = hardwareNodes.find(n => n.id === member.node_id);
-          if (!hw) continue;
-          const workerId = member.vm_id ? `${member.node_id}-${member.vm_id}` : member.node_id;
+      workers.forEach((m, i) => {
+        const workerId = pushMember(m, workerX, workerStartY + i * NODE_GAP_Y);
+        if (!workerId) return;
+        for (const masterId of masterIds) {
           edges.push({
             id: `k8s-${masterId}-${workerId}`,
             source: masterId,
@@ -232,9 +232,9 @@ function K8sOverlayInner() {
             },
           });
         }
-      }
+      });
 
-      clusterOffsetX += radius * 2 + 300;
+      clusterOffsetY += totalHeight + 250;
     }
 
     return { initialNodes: nodes, k8sEdges: edges, clusterStats: stats };
