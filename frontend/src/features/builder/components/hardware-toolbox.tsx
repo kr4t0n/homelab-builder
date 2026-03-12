@@ -22,6 +22,9 @@ import {
   Printer,
   Globe,
   Cloud,
+  Smartphone,
+  Tablet,
+  Tv,
 } from 'lucide-react';
 import type { HardwareType } from '../../../types';
 import { Card } from '../../../components/ui/card';
@@ -49,6 +52,9 @@ const HARDWARE_TOOLS: {
   { type: 'hba', label: 'HBA', icon: Plug, color: 'text-indigo-500' },
   { type: 'ups', label: 'UPS', icon: Battery, color: 'text-lime-500' },
   { type: 'iot', label: 'IoT', icon: Printer, color: 'text-yellow-600' },
+  { type: 'phone', label: 'Phone', icon: Smartphone, color: 'text-rose-500' },
+  { type: 'pad', label: 'Pad', icon: Tablet, color: 'text-fuchsia-500' },
+  { type: 'tv', label: 'TV', icon: Tv, color: 'text-amber-500' },
   { type: 'modem', label: 'Modem', icon: Globe, color: 'text-blue-600' },
   { type: 'internet', label: 'Internet', icon: Cloud, color: 'text-teal-500' },
 ];

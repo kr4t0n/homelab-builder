@@ -18,6 +18,9 @@ import {
   Printer,
   Globe,
   Cloud,
+  Smartphone,
+  Tablet,
+  Tv,
 } from 'lucide-react';
 import { Card } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
@@ -163,6 +166,27 @@ const TYPE_CONFIG: Partial<
     bg: 'bg-blue-600',
     iconColor: 'text-blue-600',
     color: '#2563eb',
+  },
+  phone: {
+    icon: Smartphone,
+    border: 'border-border',
+    bg: 'bg-rose-500',
+    iconColor: 'text-rose-500',
+    color: '#f43f5e',
+  },
+  pad: {
+    icon: Tablet,
+    border: 'border-border',
+    bg: 'bg-fuchsia-500',
+    iconColor: 'text-fuchsia-500',
+    color: '#d946ef',
+  },
+  tv: {
+    icon: Tv,
+    border: 'border-border',
+    bg: 'bg-amber-500',
+    iconColor: 'text-amber-500',
+    color: '#f59e0b',
   },
   internet: {
     icon: Cloud,

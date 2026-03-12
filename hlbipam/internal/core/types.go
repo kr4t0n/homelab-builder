@@ -24,6 +24,9 @@ var DefaultDeviceZones = map[string]ZoneConfig{
 	"pcie":         {BaseOffset: 198, Step: 1, CanHostVMs: false, Label: "PCIe"},
 	"iot":          {BaseOffset: 200, Step: 10, CanHostVMs: true, Label: "IoT"},
 	"modem":        {BaseOffset: 5, Step: 1, CanHostVMs: false, Label: "Modem"},
+	"phone":        {BaseOffset: 30, Step: 1, CanHostVMs: false, Label: "Phone"},
+	"pad":          {BaseOffset: 35, Step: 1, CanHostVMs: false, Label: "Pad"},
+	"tv":           {BaseOffset: 40, Step: 1, CanHostVMs: false, Label: "TV"},
 }
 
 var FallbackZone = ZoneConfig{BaseOffset: 220, Step: 1, CanHostVMs: false, Label: "Device"}

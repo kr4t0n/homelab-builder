@@ -34,6 +34,8 @@ const SPEED_COLORS: Record<string, string> = {
   '10 GbE': '#a855f7', // purple-500
   '40 GbE': '#f97316', // orange-500
   '100 GbE': '#ef4444', // red-500
+  'WiFi 6': '#06b6d4', // cyan-500
+  'WiFi 7': '#8b5cf6', // violet-500
 };
 
 export function CustomEdge({
@@ -260,6 +262,8 @@ export function CustomEdge({
                         <SelectItem value="10 GbE">10 GbE</SelectItem>
                         <SelectItem value="40 GbE">40 GbE</SelectItem>
                         <SelectItem value="100 GbE">100 GbE</SelectItem>
+                        <SelectItem value="WiFi 6">WiFi 6</SelectItem>
+                        <SelectItem value="WiFi 7">WiFi 7</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

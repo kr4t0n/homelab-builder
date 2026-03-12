@@ -138,6 +138,9 @@ export type HardwareType =
   | 'minipc'
   | 'iot'
   | 'modem'
+  | 'phone'
+  | 'pad'
+  | 'tv'
   | 'internet';
 
 export interface HardwareSpec {

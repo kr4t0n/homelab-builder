@@ -31,6 +31,9 @@ import {
   Crown,
   Cog,
   Package,
+  Smartphone,
+  Tablet,
+  Tv,
 } from 'lucide-react';
 import { useBuilderStore } from '../store/builder-store';
 import { cn } from '../../../lib/utils';
@@ -48,6 +51,9 @@ const ICON_MAP: Partial<Record<HardwareType, React.ElementType>> = {
   access_point: Wifi,
   iot: Printer,
   modem: Globe,
+  phone: Smartphone,
+  pad: Tablet,
+  tv: Tv,
   internet: Cloud,
 };
 

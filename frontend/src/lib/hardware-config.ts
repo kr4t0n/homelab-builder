@@ -27,9 +27,12 @@ export const HARDWARE_FEATURES: Record<HardwareType, HardwareFeatures> = {
   disk:         { hasCPU: false, hasRAM: false, hasStorage: true,  canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: false, canBeNested: true,  canHostNested: false, canConnectToAny: false },
   gpu:          { hasCPU: false, hasRAM: true,  hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: false, canBeNested: true,  canHostNested: false, canConnectToAny: false },
   pdu:          { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: false, canBeNested: false, canHostNested: false, canConnectToAny: false },
-  access_point: { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: true,  canBeNested: false, canHostNested: false, canConnectToAny: false },
+  access_point: { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: true,  isNetworked: true,  canBeNested: false, canHostNested: false, canConnectToAny: true },
   hba:          { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: false, canBeNested: true,  canHostNested: false, canConnectToAny: true },
   pcie:         { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: false, canBeNested: true,  canHostNested: false, canConnectToAny: false },
+  phone:        { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: true,  canBeNested: false, canHostNested: false, canConnectToAny: false },
+  pad:          { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: true,  canBeNested: false, canHostNested: false, canConnectToAny: false },
+  tv:           { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: false, isNetworked: true,  canBeNested: false, canHostNested: false, canConnectToAny: false },
   internet:     { hasCPU: false, hasRAM: false, hasStorage: false, canHostVMs: false, isCompute: false, hasDynamicPorts: true,  isNetworked: false, canBeNested: false, canHostNested: false, canConnectToAny: true },
 };
 
