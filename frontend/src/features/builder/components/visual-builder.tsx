@@ -24,7 +24,12 @@ import { Wand2, Menu, Save, Folder, Download, LogOut, Route, Shield, Network } f
 import type { HardwareType, HardwareNode } from '../../../types';
 import { cn } from '../../../lib/utils';
 import { buildApi } from '../api/builds';
-import { nodeHasDynamicPorts, canNodeBeNested, canNodeHostNested, canNodeConnectToAny } from '../../../lib/hardware-config';
+import {
+  nodeHasDynamicPorts,
+  canNodeBeNested,
+  canNodeHostNested,
+  canNodeConnectToAny,
+} from '../../../lib/hardware-config';
 import { getNodePortCount } from '../lib/port-count';
 import { useAuth } from '../../admin/hooks/use-auth';
 import {
@@ -279,9 +284,7 @@ function Flow() {
   // fires after *all* state updates (including the deleteElements re-render from
   // Effect 1) have settled.
   useEffect(() => {
-    const portNodeIds = hardwareNodes
-      .filter(n => nodeHasDynamicPorts(n.type))
-      .map(n => n.id);
+    const portNodeIds = hardwareNodes.filter(n => nodeHasDynamicPorts(n.type)).map(n => n.id);
     if (portNodeIds.length === 0) return;
 
     const r1 = requestAnimationFrame(() => {
@@ -545,7 +548,9 @@ function Flow() {
       const targetCanConnectToAny = canNodeConnectToAny(targetNode.type as HardwareType);
 
       if (!sourceCanConnectToAny && !targetCanConnectToAny) {
-        toast.error('Devices generally must connect through a network hub (Switch, Router, Modem, etc).');
+        toast.error(
+          'Devices generally must connect through a network hub (Switch, Router, Modem, etc).',
+        );
         return false;
       }
 
@@ -578,7 +583,7 @@ function Flow() {
 
       <div className="flex-1 h-full relative" ref={reactFlowWrapper}>
         <LiveResourceDashboard />
-        <div className="absolute bottom-10 right-4 z-10 flex items-center gap-2">
+        <div className="absolute bottom-5 right-4 z-10 flex items-center gap-2">
           <TailscaleStatusBadge />
           <K8sStatusBadge />
         </div>
@@ -680,9 +685,7 @@ function Flow() {
                   size="sm"
                   className={cn(
                     'h-10 w-37.5',
-                    tailscaleEnabled
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                      : 'bg-card',
+                    tailscaleEnabled ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-card',
                   )}
                 >
                   <Shield className="mr-2 h-4 w-4 shrink-0" />
@@ -692,33 +695,33 @@ function Flow() {
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel>Tailscale VPN</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => setTailscaleEnabled(!tailscaleEnabled)}
-                >
+                <DropdownMenuItem onClick={() => setTailscaleEnabled(!tailscaleEnabled)}>
                   <div className="flex items-center justify-between w-full">
                     <span>{tailscaleEnabled ? 'Disable' : 'Enable'} Tailscale</span>
-                    <span className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded-full',
-                      tailscaleEnabled
-                        ? 'bg-blue-500/20 text-blue-400'
-                        : 'bg-muted text-muted-foreground',
-                    )}>
+                    <span
+                      className={cn(
+                        'text-[10px] px-1.5 py-0.5 rounded-full',
+                        tailscaleEnabled
+                          ? 'bg-blue-500/20 text-blue-400'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
                       {tailscaleEnabled ? 'ON' : 'OFF'}
                     </span>
                   </div>
                 </DropdownMenuItem>
                 {tailscaleEnabled && (
-                  <DropdownMenuItem
-                    onClick={() => setTailscaleViewActive(!tailscaleViewActive)}
-                  >
+                  <DropdownMenuItem onClick={() => setTailscaleViewActive(!tailscaleViewActive)}>
                     <div className="flex items-center justify-between w-full">
                       <span>Mesh Overlay View</span>
-                      <span className={cn(
-                        'text-[10px] px-1.5 py-0.5 rounded-full',
-                        tailscaleViewActive
-                          ? 'bg-blue-500/20 text-blue-400'
-                          : 'bg-muted text-muted-foreground',
-                      )}>
+                      <span
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded-full',
+                          tailscaleViewActive
+                            ? 'bg-blue-500/20 text-blue-400'
+                            : 'bg-muted text-muted-foreground',
+                        )}
+                      >
                         {tailscaleViewActive ? 'ON' : 'OFF'}
                       </span>
                     </div>
@@ -750,12 +753,14 @@ function Flow() {
                 <DropdownMenuItem onClick={() => setK8sManagerOpen(!k8sManagerOpen)}>
                   <div className="flex items-center justify-between w-full">
                     <span>Manage Clusters</span>
-                    <span className={cn(
-                      'text-[10px] px-1.5 py-0.5 rounded-full',
-                      k8sClusters.length > 0
-                        ? 'bg-violet-500/20 text-violet-400'
-                        : 'bg-muted text-muted-foreground',
-                    )}>
+                    <span
+                      className={cn(
+                        'text-[10px] px-1.5 py-0.5 rounded-full',
+                        k8sClusters.length > 0
+                          ? 'bg-violet-500/20 text-violet-400'
+                          : 'bg-muted text-muted-foreground',
+                      )}
+                    >
                       {k8sClusters.length}
                     </span>
                   </div>
@@ -764,12 +769,14 @@ function Flow() {
                   <DropdownMenuItem onClick={() => setK8sOverlayActive(!k8sOverlayActive)}>
                     <div className="flex items-center justify-between w-full">
                       <span>Cluster Overlay View</span>
-                      <span className={cn(
-                        'text-[10px] px-1.5 py-0.5 rounded-full',
-                        k8sOverlayActive
-                          ? 'bg-violet-500/20 text-violet-400'
-                          : 'bg-muted text-muted-foreground',
-                      )}>
+                      <span
+                        className={cn(
+                          'text-[10px] px-1.5 py-0.5 rounded-full',
+                          k8sOverlayActive
+                            ? 'bg-violet-500/20 text-violet-400'
+                            : 'bg-muted text-muted-foreground',
+                        )}
+                      >
                         {k8sOverlayActive ? 'ON' : 'OFF'}
                       </span>
                     </div>

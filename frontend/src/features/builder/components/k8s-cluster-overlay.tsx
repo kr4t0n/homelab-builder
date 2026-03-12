@@ -56,6 +56,7 @@ type K8sNodeData = {
   type: HardwareType;
   role: 'master' | 'worker';
   ip: string;
+  tailscaleIp?: string;
   clusterColor: string;
   clusterName: string;
   isVm: boolean;
@@ -116,6 +117,12 @@ function K8sNode({ data }: NodeProps) {
               <span className="font-mono text-[11px] text-slate-300">{d.ip}</span>
             </div>
           )}
+          {d.tailscaleIp && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-blue-400">TS</span>
+              <span className="font-mono text-[11px] text-blue-300">{d.tailscaleIp}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -144,6 +151,7 @@ function K8sOverlayInner() {
   const k8sClusters = useBuilderStore(s => s.k8sClusters);
   const k8sMembers = useBuilderStore(s => s.k8sMembers);
   const k8sWorkloads = useBuilderStore(s => s.k8sWorkloads);
+  const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
   const setK8sOverlayActive = useBuilderStore(s => s.setK8sOverlayActive);
 
   useEffect(() => {
@@ -200,6 +208,9 @@ function K8sOverlayInner() {
             type: hw.type,
             role: member.role,
             ip: isVm ? (vm?.ip || '') : (hw.ip || ''),
+            tailscaleIp: tailscaleEnabled
+              ? (isVm ? (vm?.tailscale_ip || '') : (hw.tailscale_ip || ''))
+              : undefined,
             clusterColor: cluster.color,
             clusterName: cluster.name,
             isVm,
@@ -238,7 +249,7 @@ function K8sOverlayInner() {
     }
 
     return { initialNodes: nodes, k8sEdges: edges, clusterStats: stats };
-  }, [hardwareNodes, k8sClusters, k8sMembers, k8sWorkloads]);
+  }, [hardwareNodes, k8sClusters, k8sMembers, k8sWorkloads, tailscaleEnabled]);
 
   const [overlayNodes, setOverlayNodes] = useState<Node[]>(initialNodes);
   useEffect(() => setOverlayNodes(initialNodes), [initialNodes]);
