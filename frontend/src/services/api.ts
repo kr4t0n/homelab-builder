@@ -102,6 +102,11 @@ export const api = {
             body: JSON.stringify(data),
         }),
 
+    deleteService: (id: string) =>
+        request<{ message: string }>(`/api/services/${id}`, {
+            method: 'DELETE',
+        }),
+
     // Hardware & Admin
     getHardwareAdmin: () => request<any>('/api/admin/hardware?limit=100'),
     updateHardwareBuyUrls: (id: string, data: { buy_urls: any[], affiliate_tag: string }) =>

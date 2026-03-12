@@ -4,13 +4,14 @@ import { useUserSelections, useAddSelection, useRemoveSelection } from '../api/u
 import { Input } from '../../../components/ui/input';
 import { Label } from '../../../components/ui/label';
 import { Button } from '../../../components/ui/button';
-import { Search, Heart, Package, Book, Globe, Plus } from 'lucide-react';
+import { Search, Heart, Package, Book, Globe, Plus, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '../../../components/ui/dialog';
 import type { Service, ServiceCategory } from '../../../types';
 import { Github } from '../../../components/icons/github';
@@ -21,10 +22,12 @@ function ServiceCard({
   item,
   isFavorite,
   selectionId,
+  onDelete,
 }: {
   item: Service;
   isFavorite: boolean;
   selectionId?: string;
+  onDelete?: (id: string) => void;
 }) {
   const addSelection = useAddSelection();
   const removeSelection = useRemoveSelection();
@@ -55,12 +58,23 @@ function ServiceCard({
               <h3 className="font-semibold text-base truncate">{item.name}</h3>
               <p className="text-xs text-muted-foreground capitalize mt-0.5">{item.category}</p>
             </div>
-            <button
-              onClick={handleFavorite}
-              className={`shrink-0 p-1.5 rounded-md hover:bg-muted/60 transition-colors hover:cursor-pointer ${isFavorite ? 'text-red-500 hover:text-red-400' : 'text-muted-foreground hover:text-red-400'}`}
-            >
-              <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-500' : ''}`} />
-            </button>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button
+                onClick={handleFavorite}
+                className={`p-1.5 rounded-md hover:bg-muted/60 transition-colors hover:cursor-pointer ${isFavorite ? 'text-red-500 hover:text-red-400' : 'text-muted-foreground hover:text-red-400'}`}
+              >
+                <Heart className={`h-4 w-4 ${isFavorite ? 'fill-red-500' : ''}`} />
+              </button>
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(item.id)}
+                  className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors hover:cursor-pointer text-muted-foreground hover:text-destructive"
+                  title="Delete service"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-sm text-foreground/80 mt-2 line-clamp-3">
             {item.description || 'No description provided.'}
@@ -167,10 +181,12 @@ function AddServiceCard() {
     try {
       await api.createService({
         ...form,
-        tags: form.tags
-          .split(',')
-          .map(t => t.trim())
-          .filter(Boolean),
+        tags: JSON.stringify(
+          form.tags
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean),
+        ),
       });
       toast.success(`"${form.name}" added to the library`);
       resetForm();
@@ -317,6 +333,23 @@ export default function ServiceCatalogPage() {
   const { data: selectionsData, isLoading } = useUserSelections();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<Service | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.deleteService(deleteTarget.id);
+      toast.success(`"${deleteTarget.name}" removed from the library`);
+      setDeleteTarget(null);
+      fetchServices();
+    } catch {
+      toast.error('Failed to delete service');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (availableServices.length === 0) {
     fetchServices(); // Ensure they are loaded if arriving directly
@@ -415,11 +448,34 @@ export default function ServiceCatalogPage() {
               item={item}
               isFavorite={favSet.has(item.id)}
               selectionId={favSet.get(item.id)}
+              onDelete={id => {
+                const svc = availableServices.find(s => s.id === id);
+                if (svc) setDeleteTarget(svc);
+              }}
             />
           ))}
           <AddServiceCard />
         </div>
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Service</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
