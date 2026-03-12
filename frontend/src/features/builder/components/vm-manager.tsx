@@ -402,7 +402,7 @@ export function VMManager({ nodeId }: Props) {
     const handleAdd = () => {
         if (!newVM.name?.trim()) return
         addVM(nodeId, {
-            id: `vm-${Date.now()}`,
+            id: crypto.randomUUID(),
             name: newVM.name!,
             type: newVM.type as VMType || 'container',
             status: newVM.status as VirtualMachine['status'] || 'running',

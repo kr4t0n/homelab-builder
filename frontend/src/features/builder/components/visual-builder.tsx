@@ -453,7 +453,7 @@ function Flow() {
           const ramVal = data.details?.ram ? Number(data.details.ram) : undefined;
 
           addVM(targetNode.id, {
-            id: `vm-${Date.now()}`,
+            id: crypto.randomUUID(),
             name: data.name,
             type: 'container',
             status: 'running',
