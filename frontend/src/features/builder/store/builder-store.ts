@@ -540,6 +540,7 @@ export const useBuilderStore = create<BuilderState>()(
                 ? { ...n, data: { ...n.data, vms: updated.find(h => h.id === nodeId)?.vms } }
                 : n,
             ),
+            k8sMembers: state.k8sMembers.filter(m => m.vm_id !== vmId),
           };
         });
 

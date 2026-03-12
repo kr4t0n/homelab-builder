@@ -407,7 +407,7 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
                               </div>
                             )}
                           </div>
-                          <div className="grid grid-cols-4 gap-3">
+                          <div className="grid grid-cols-3 gap-3">
                             <div>
                               <Label className="text-xs mb-1">Namespace</Label>
                               <Input className="h-8 text-sm font-mono" value={workloadForm.namespace} onChange={e => setWorkloadForm(p => ({ ...p, namespace: e.target.value }))} />
@@ -419,13 +419,6 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
                             <div>
                               <Label className="text-xs mb-1">Port</Label>
                               <Input className="h-8 text-sm font-mono" type="number" value={workloadForm.port} onChange={e => setWorkloadForm(p => ({ ...p, port: Number(e.target.value) }))} />
-                            </div>
-                            <div className="flex items-end pb-0.5">
-                              <label className="flex items-center gap-2 text-xs cursor-pointer h-8">
-                                <input type="checkbox" className="rounded h-4 w-4" checked={workloadForm.ingress} onChange={e => setWorkloadForm(p => ({ ...p, ingress: e.target.checked }))} />
-                                <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                                Ingress
-                              </label>
                             </div>
                           </div>
                           <div className="flex gap-2">
