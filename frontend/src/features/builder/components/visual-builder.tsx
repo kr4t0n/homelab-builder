@@ -233,15 +233,15 @@ function Flow() {
     }
   }, []);
 
-  const saveProject = useCallback(async () => {
+  const saveProject = useCallback(async (withThumbnail = false) => {
     if (!id) return;
     setSaveStatus('saving');
     try {
       const data = getBuildData();
-      const thumbnail = await captureCanvasThumbnail();
+      const thumbnail = withThumbnail ? await captureCanvasThumbnail() : undefined;
       await buildApi.update(id, {
         name: projectName || 'Untitled Project',
-        thumbnail,
+        ...(thumbnail !== undefined && { thumbnail }),
         ...data,
       });
       setSaveStatus('saved');
@@ -255,24 +255,38 @@ function Flow() {
     }
   }, [id, getBuildData, projectName, validateNetwork, captureCanvasThumbnail]);
 
-  // Auto-save trigger
+  // Auto-save trigger (lightweight — no thumbnail)
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
 
-    // Debounce save
     const timer = setTimeout(() => {
-      saveProject();
-    }, 2000); // 2 seconds debounce
+      saveProject(false);
+    }, 2000);
 
     return () => clearTimeout(timer);
-  }, [nodes, edges, hardwareNodes, saveProject]); // Any change triggers debounce
+  }, [nodes, edges, hardwareNodes, saveProject]);
 
-  // Manual save wrapper (immediate)
+  // Capture thumbnail on page exit / tab switch
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') saveProject(true);
+    };
+    const onBeforeUnload = () => saveProject(true);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [saveProject]);
+
+  // Manual save wrapper (immediate, with thumbnail)
   const handleManualSave = () => {
-    toast.promise(saveProject(), {
+    toast.promise(saveProject(true), {
       loading: 'Saving...',
       success: 'Project saved',
       error: 'Failed to save',
@@ -655,7 +669,7 @@ function Flow() {
               <DropdownMenuContent align="start" className="w-56">
                 <DropdownMenuLabel>Project Menu</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={saveProject}>
+                <DropdownMenuItem onClick={handleManualSave}>
                   <Save className="mr-2 h-4 w-4" /> Save Project{' '}
                   <span className="ml-auto text-xs text-muted-foreground opacity-60">Ctrl+S</span>
                 </DropdownMenuItem>
