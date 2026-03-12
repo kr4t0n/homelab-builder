@@ -326,12 +326,12 @@ function VmChip({ vm, components }: { vm: VirtualMachine; components?: HardwareC
   return (
     <div
       className={cn(
-        'flex items-center gap-1.5 rounded border px-1.5 py-1 text-[10px] font-mono',
+        'flex items-start gap-1.5 rounded border px-1.5 py-1.5 text-[10px] font-mono',
         colorClass,
       )}
     >
-      <Icon className="h-2.5 w-2.5 shrink-0" />
-      <div className="min-w-0 flex-1">
+      <Icon className="h-2.5 w-2.5 shrink-0 mt-0.5" />
+      <div className="min-w-0 flex-1 space-y-0.5">
         <div className="truncate font-semibold max-w-20" title={vm.name}>
           {vm.name}
         </div>
@@ -344,11 +344,11 @@ function VmChip({ vm, components }: { vm: VirtualMachine; components?: HardwareC
           </div>
         )}
         {ptComponents.length > 0 && (
-          <div className="flex flex-wrap gap-0.5 mt-0.5">
+          <div className="flex flex-wrap gap-0.5 pt-0.5">
             {ptComponents.map(c => (
               <span
                 key={c.id}
-                className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-px text-[7px] font-semibold leading-tight"
+                className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-0.5 text-[7px] font-semibold leading-tight"
                 title={c.name}
               >
                 {PT_TYPE_LABEL[c.type] || c.type.toUpperCase()}: {c.name}
