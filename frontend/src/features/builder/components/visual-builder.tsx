@@ -220,6 +220,7 @@ function Flow() {
         height: Math.round(bounds.height),
         canvasWidth: 640,
         canvasHeight: 360,
+        skipFonts: true,
         filter: (node: HTMLElement) => {
           const cls = node.className?.toString?.() || '';
           if (cls.includes('react-flow__controls')) return false;
