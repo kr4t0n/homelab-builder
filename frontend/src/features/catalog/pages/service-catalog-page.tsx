@@ -2,9 +2,20 @@ import { useState, useMemo } from 'react';
 import { useBuilderStore } from '../../builder/store/builder-store';
 import { useUserSelections, useAddSelection, useRemoveSelection } from '../api/use-services';
 import { Input } from '../../../components/ui/input';
-import { Search, Heart, Package, Book, Globe } from 'lucide-react';
-import type { Service } from '../../../types';
+import { Label } from '../../../components/ui/label';
+import { Button } from '../../../components/ui/button';
+import { Search, Heart, Package, Book, Globe, Plus } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '../../../components/ui/dialog';
+import type { Service, ServiceCategory } from '../../../types';
 import { Github } from '../../../components/icons/github';
+import { api } from '../../../services/api';
+import { toast } from 'sonner';
 
 function ServiceCard({
   item,
@@ -105,6 +116,199 @@ function ServiceCard({
         </div>
       </div>
     </div>
+  );
+}
+
+const SERVICE_CATEGORIES: { value: ServiceCategory; label: string }[] = [
+  { value: 'media', label: 'Media' },
+  { value: 'networking', label: 'Networking' },
+  { value: 'monitoring', label: 'Monitoring' },
+  { value: 'storage', label: 'Storage' },
+  { value: 'management', label: 'Management' },
+  { value: 'home_automation', label: 'Home Automation' },
+  { value: 'gaming', label: 'Gaming' },
+  { value: 'other', label: 'Other' },
+];
+
+function AddServiceCard() {
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const { fetchServices } = useBuilderStore();
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    category: 'other' as ServiceCategory,
+    official_website: '',
+    docs_url: '',
+    github_url: '',
+    tags: '',
+    docker_support: true,
+  });
+
+  const resetForm = () =>
+    setForm({
+      name: '',
+      description: '',
+      category: 'other',
+      official_website: '',
+      docs_url: '',
+      github_url: '',
+      tags: '',
+      docker_support: true,
+    });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      toast.error('Service name is required');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.createService({
+        ...form,
+        tags: form.tags
+          .split(',')
+          .map(t => t.trim())
+          .filter(Boolean),
+      });
+      toast.success(`"${form.name}" added to the library`);
+      resetForm();
+      setOpen(false);
+      fetchServices();
+    } catch {
+      toast.error('Failed to add service');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="group rounded-xl border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-all duration-200 flex flex-col items-center justify-center h-full min-h-[200px] cursor-pointer hover:bg-muted/30"
+      >
+        <div className="p-3 rounded-full bg-muted/50 group-hover:bg-primary/10 transition-colors mb-3">
+          <Plus className="h-8 w-8 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+        </div>
+        <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+          Add Service
+        </span>
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add New Service</DialogTitle>
+            <DialogDescription>
+              Add a self-hosted service to the library.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="svc-name">Name *</Label>
+                <Input
+                  id="svc-name"
+                  placeholder="e.g. Nextcloud"
+                  value={form.name}
+                  onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="svc-category">Category</Label>
+                <select
+                  id="svc-category"
+                  className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+                  value={form.category}
+                  onChange={e => setForm(p => ({ ...p, category: e.target.value as ServiceCategory }))}
+                >
+                  {SERVICE_CATEGORIES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="svc-desc">Description</Label>
+              <textarea
+                id="svc-desc"
+                rows={3}
+                placeholder="Brief description of the service..."
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm resize-none"
+                value={form.description}
+                onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="svc-website">Website</Label>
+                <Input
+                  id="svc-website"
+                  placeholder="https://..."
+                  value={form.official_website}
+                  onChange={e => setForm(p => ({ ...p, official_website: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="svc-github">GitHub URL</Label>
+                <Input
+                  id="svc-github"
+                  placeholder="https://github.com/..."
+                  value={form.github_url}
+                  onChange={e => setForm(p => ({ ...p, github_url: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="svc-docs">Docs URL</Label>
+              <Input
+                id="svc-docs"
+                placeholder="https://docs.example.com"
+                value={form.docs_url}
+                onChange={e => setForm(p => ({ ...p, docs_url: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="svc-tags">Tags (comma-separated)</Label>
+              <Input
+                id="svc-tags"
+                placeholder="e.g. cloud, files, sync"
+                value={form.tags}
+                onChange={e => setForm(p => ({ ...p, tags: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                id="svc-docker"
+                type="checkbox"
+                checked={form.docker_support}
+                onChange={e => setForm(p => ({ ...p, docker_support: e.target.checked }))}
+                className="rounded"
+              />
+              <Label htmlFor="svc-docker" className="text-sm cursor-pointer">
+                Supports Docker
+              </Label>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Adding...' : 'Add Service'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -213,6 +417,7 @@ export default function ServiceCatalogPage() {
               selectionId={favSet.get(item.id)}
             />
           ))}
+          <AddServiceCard />
         </div>
       )}
     </div>
