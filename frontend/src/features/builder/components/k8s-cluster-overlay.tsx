@@ -350,21 +350,26 @@ export function K8sClusterOverlay() {
 export function K8sStatusBadge() {
   const k8sClusters = useBuilderStore(s => s.k8sClusters);
   const k8sMembers = useBuilderStore(s => s.k8sMembers);
+  const setK8sOverlayActive = useBuilderStore(s => s.setK8sOverlayActive);
 
   if (k8sClusters.length === 0) return null;
 
   return (
-    <div className={cn(
-      'flex items-center gap-2 px-3 py-1.5 rounded-full',
-      'bg-violet-950/80 border border-violet-500/30 text-violet-300 text-[11px]',
-      'pointer-events-none select-none backdrop-blur-sm',
-    )}>
+    <button
+      onClick={() => setK8sOverlayActive(true)}
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 rounded-full',
+        'bg-violet-950/80 border border-violet-500/30 text-violet-300 text-[11px]',
+        'select-none backdrop-blur-sm cursor-pointer',
+        'hover:bg-violet-900/80 hover:border-violet-400/50 transition-colors',
+      )}
+    >
       <Network className="h-3.5 w-3.5" />
       <span className="font-medium">K8s</span>
       <span className="text-violet-400/70">
         {k8sClusters.length} cluster{k8sClusters.length !== 1 ? 's' : ''}
         {k8sMembers.length > 0 && ` / ${k8sMembers.length} node${k8sMembers.length !== 1 ? 's' : ''}`}
       </span>
-    </div>
+    </button>
   );
 }

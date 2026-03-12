@@ -334,6 +334,7 @@ export function TailscaleView() {
 
 export function TailscaleStatusBadge() {
   const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
+  const setTailscaleViewActive = useBuilderStore(s => s.setTailscaleViewActive);
   const hardwareNodes = useBuilderStore(s => s.hardwareNodes);
 
   if (!tailscaleEnabled) return null;
@@ -343,14 +344,18 @@ export function TailscaleStatusBadge() {
   ).length;
 
   return (
-    <div className={cn(
-      'flex items-center gap-2 px-3 py-1.5 rounded-full',
-      'bg-blue-950/80 border border-blue-500/30 text-blue-300 text-[11px]',
-      'pointer-events-none select-none backdrop-blur-sm',
-    )}>
+    <button
+      onClick={() => setTailscaleViewActive(true)}
+      className={cn(
+        'flex items-center gap-2 px-3 py-1.5 rounded-full',
+        'bg-blue-950/80 border border-blue-500/30 text-blue-300 text-[11px]',
+        'select-none backdrop-blur-sm cursor-pointer',
+        'hover:bg-blue-900/80 hover:border-blue-400/50 transition-colors',
+      )}
+    >
       <Shield className="h-3.5 w-3.5" />
       <span className="font-medium">Tailscale</span>
       <span className="text-blue-400/70">{enrolledCount} device{enrolledCount !== 1 ? 's' : ''}</span>
-    </div>
+    </button>
   );
 }
