@@ -91,6 +91,7 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 	}
 
 	idMap := make(map[string]uuid.UUID)
+	compIdMap := make(map[string]uuid.UUID)
 
 	// 2. Insert Nodes
 	for _, n := range input.Nodes {
@@ -134,14 +135,43 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 			return err
 		}
 
-		// 2.1 VMs
+		// 2.1 Internal Components (before VMs so passthrough refs can be remapped)
+		for _, comp := range n.InternalComponents {
+			compUID := uuid.New()
+			if parsed, err := uuid.Parse(comp.ID); err == nil {
+				compUID = parsed
+			}
+			compIdMap[comp.ID] = compUID
+			compDetailsJSON, _ := json.Marshal(comp.Details)
+			cModel := models.NodeComponent{
+				ID:      compUID,
+				NodeID:  uid,
+				Type:    comp.Type,
+				Name:    comp.Name,
+				Details: compDetailsJSON,
+			}
+			if err := tx.Create(&cModel).Error; err != nil {
+				return err
+			}
+		}
+
+		// 2.2 VMs (passthrough refs remapped via compIdMap)
 		for _, vm := range n.VMs {
 			vmUID := uuid.New()
 			if parsed, err := uuid.Parse(vm.ID); err == nil {
 				vmUID = parsed
 			}
 
-			ptJSON, _ := json.Marshal(vm.Passthrough)
+			remappedPT := make([]string, 0, len(vm.Passthrough))
+			for _, ptRef := range vm.Passthrough {
+				if newID, ok := compIdMap[ptRef]; ok {
+					remappedPT = append(remappedPT, newID.String())
+				} else {
+					remappedPT = append(remappedPT, ptRef)
+				}
+			}
+
+			ptJSON, _ := json.Marshal(remappedPT)
 			if ptJSON == nil {
 				ptJSON = []byte("[]")
 			}
@@ -160,25 +190,6 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 				Passthrough: ptJSON,
 			}
 			if err := tx.Create(&vModel).Error; err != nil {
-				return err
-			}
-		}
-
-		// 2.2 Internal Components
-		for _, comp := range n.InternalComponents {
-			compUID := uuid.New()
-			if parsed, err := uuid.Parse(comp.ID); err == nil {
-				compUID = parsed
-			}
-			compDetailsJSON, _ := json.Marshal(comp.Details)
-			cModel := models.NodeComponent{
-				ID:      compUID,
-				NodeID:  uid,
-				Type:    comp.Type,
-				Name:    comp.Name,
-				Details: compDetailsJSON,
-			}
-			if err := tx.Create(&cModel).Error; err != nil {
 				return err
 			}
 		}

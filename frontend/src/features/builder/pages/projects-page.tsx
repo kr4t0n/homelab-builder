@@ -63,11 +63,74 @@ const normalizeNodesForSync = (nodes: any[] = []) =>
   nodes.map(node => ({
     ...node,
     details: parseDetailsObject(node.details),
+    vms: (node.vms || node.virtual_machines || []).map((vm: any) => ({
+      ...vm,
+      passthrough: vm.passthrough || [],
+    })),
     internal_components: (node.internal_components || []).map((component: any) => ({
       ...component,
       details: parseDetailsObject(component.details),
     })),
   }));
+
+/**
+ * Remap all IDs in import data to avoid primary key collisions with existing records.
+ * Uses non-UUID temp IDs so the backend generates fresh UUIDs via uuid.New().
+ */
+const remapImportIds = (data: any) => {
+  const idMap = new Map<string, string>();
+  let counter = 0;
+  const tempId = (oldId: string) => {
+    if (!oldId) return oldId;
+    if (!idMap.has(oldId)) idMap.set(oldId, `imp-${counter++}`);
+    return idMap.get(oldId)!;
+  };
+
+  const nodes = (data.nodes || []).map((node: any) => {
+    const newNodeId = tempId(node.id);
+    const vms = (node.vms || node.virtual_machines || []).map((vm: any) => ({
+      ...vm,
+      id: tempId(vm.id),
+      node_id: undefined,
+      passthrough: (vm.passthrough || []).map((p: string) => tempId(p)),
+    }));
+    const components = (node.internal_components || []).map((c: any) => ({
+      ...c,
+      id: tempId(c.id),
+      node_id: undefined,
+      details: parseDetailsObject(c.details),
+    }));
+    return {
+      ...node,
+      id: newNodeId,
+      build_id: undefined,
+      details: parseDetailsObject(node.details),
+      vms,
+      virtual_machines: undefined,
+      internal_components: components,
+    };
+  });
+
+  const edges = (data.edges || []).map((e: any) => ({
+    source: tempId(e.source || e.source_node_id),
+    source_handle: e.source_handle || e.sourceHandle || '',
+    target: tempId(e.target || e.target_node_id),
+    target_handle: e.target_handle || e.targetHandle || '',
+    speed: e.speed || e.data?.speed || '1 GbE',
+    subnet: e.subnet || e.data?.subnet || '',
+  }));
+
+  const settings = { ...(data.settings || {}) };
+  if (settings.k8s_members) {
+    settings.k8s_members = settings.k8s_members.map((m: any) => ({
+      ...m,
+      node_id: tempId(m.node_id),
+      vm_id: m.vm_id ? tempId(m.vm_id) : undefined,
+    }));
+  }
+
+  return { nodes, edges, settings };
+};
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
@@ -154,16 +217,28 @@ export default function ProjectsPage() {
     try {
       const name = newProjectName.trim() || (importData ? 'Imported Project' : 'New Project');
       const parsedData = importData ? JSON.parse(importData) : {};
+
+      let nodes: any[] = [];
+      let edges: any[] = [];
+      let settings: any = {};
+      if (importData) {
+        const remapped = remapImportIds(parsedData);
+        nodes = remapped.nodes;
+        edges = remapped.edges;
+        settings = remapped.settings;
+      }
+
       const newBuild = await buildApi.create({
-        name: name,
+        name,
         thumbnail: '',
-        nodes: parsedData.nodes || [],
-        edges: parsedData.edges || [],
+        nodes,
+        edges,
         services: parsedData.services || [],
-        settings: parsedData.settings || {},
+        settings,
       });
 
-      loadBuild(newBuild.id, newBuild.name, importData ? JSON.parse(importData) : {});
+      const fullBuild = await buildApi.get(newBuild.id);
+      loadBuild(fullBuild.id, fullBuild.name, fullBuild);
       toast.success(importData ? 'Project imported successfully' : 'Project created successfully');
       navigate(`/builder/${newBuild.id}`);
     } catch (error) {
@@ -214,8 +289,7 @@ export default function ProjectsPage() {
         exportedAt: new Date().toISOString(),
         nodes: rawData.nodes || [],
         edges: rawData.edges || [],
-        boughtItems: rawData.settings?.boughtItems || [],
-        showBought: rawData.settings?.showBought || false,
+        settings: rawData.settings || {},
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
