@@ -80,7 +80,7 @@ func TestRecommendationService_Generate(t *testing.T) {
 	// Seed Services
 	svc1 := models.Service{
 		ID:       uuid.New(),
-		Name:     "Plex",
+		Name:     "plex",
 		IsActive: true,
 	}
 	require.NoError(t, db.Create(&svc1).Error)
@@ -97,7 +97,7 @@ func TestRecommendationService_Generate(t *testing.T) {
 
 	svc2 := models.Service{
 		ID:       uuid.New(),
-		Name:     "Nextcloud",
+		Name:     "nextcloud",
 		IsActive: true,
 	}
 	require.NoError(t, db.Create(&svc2).Error)

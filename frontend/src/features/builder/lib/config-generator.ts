@@ -9,35 +9,44 @@ import type { Service, HardwareNode, K8sCluster, K8sWorkload } from '../../../ty
 
 // ─── Service image map ────────────────────────────────────────────────────────
 const SERVICE_IMAGES: Record<string, { image: string; ports: string[]; volumes: string[]; env: string[] }> = {
-    'Plex': { image: 'plexinc/pms-docker:latest', ports: ['32400:32400'], volumes: ['plex_config:/config', 'plex_media:/media'], env: ['PLEX_CLAIM='] },
-    'Jellyfin': { image: 'jellyfin/jellyfin:latest', ports: ['8096:8096'], volumes: ['jellyfin_config:/config', 'jellyfin_media:/media'], env: [] },
-    'Sonarr': { image: 'linuxserver/sonarr:latest', ports: ['8989:8989'], volumes: ['sonarr_config:/config', 'media:/tv'], env: ['PUID=1000', 'PGID=1000'] },
-    'Radarr': { image: 'linuxserver/radarr:latest', ports: ['7878:7878'], volumes: ['radarr_config:/config', 'media:/movies'], env: ['PUID=1000', 'PGID=1000'] },
-    'Prowlarr': { image: 'linuxserver/prowlarr:latest', ports: ['9696:9696'], volumes: ['prowlarr_config:/config'], env: ['PUID=1000', 'PGID=1000'] },
-    'qBittorrent': { image: 'linuxserver/qbittorrent:latest', ports: ['8080:8080', '6881:6881'], volumes: ['qbt_config:/config', 'downloads:/downloads'], env: ['PUID=1000', 'PGID=1000'] },
-    'Portainer': { image: 'portainer/portainer-ce:latest', ports: ['9000:9000', '9443:9443'], volumes: ['/var/run/docker.sock:/var/run/docker.sock', 'portainer_data:/data'], env: [] },
-    'Nginx Proxy Manager': { image: 'jc21/nginx-proxy-manager:latest', ports: ['80:80', '443:443', '81:81'], volumes: ['npm_data:/data', 'npm_letsencrypt:/etc/letsencrypt'], env: [] },
-    'Traefik': { image: 'traefik:v3.0', ports: ['80:80', '443:443', '8080:8080'], volumes: ['/var/run/docker.sock:/var/run/docker.sock', 'traefik_certs:/certs'], env: [] },
-    'Grafana': { image: 'grafana/grafana:latest', ports: ['3000:3000'], volumes: ['grafana_data:/var/lib/grafana'], env: ['GF_SECURITY_ADMIN_PASSWORD=changeme'] },
-    'Prometheus': { image: 'prom/prometheus:latest', ports: ['9090:9090'], volumes: ['prometheus_data:/prometheus', './prometheus.yml:/etc/prometheus/prometheus.yml:ro'], env: [] },
-    'Home Assistant': { image: 'ghcr.io/home-assistant/home-assistant:stable', ports: ['8123:8123'], volumes: ['ha_config:/config'], env: [] },
-    'Nextcloud': { image: 'nextcloud:latest', ports: ['8080:80'], volumes: ['nextcloud_data:/var/www/html'], env: ['MYSQL_HOST=db', 'MYSQL_DATABASE=nextcloud', 'MYSQL_USER=nextcloud', 'MYSQL_PASSWORD=changeme'] },
-    'Vaultwarden': { image: 'vaultwarden/server:latest', ports: ['8080:80'], volumes: ['vaultwarden_data:/data'], env: ['ADMIN_TOKEN=changeme'] },
-    'Gitea': { image: 'gitea/gitea:latest', ports: ['3000:3000', '2222:22'], volumes: ['gitea_data:/data'], env: [] },
-    'Pi-hole': { image: 'pihole/pihole:latest', ports: ['53:53/tcp', '53:53/udp', '80:80'], volumes: ['pihole_etc:/etc/pihole', 'pihole_dnsmasq:/etc/dnsmasq.d'], env: ['WEBPASSWORD=changeme'] },
-    'AdGuard Home': { image: 'adguard/adguardhome:latest', ports: ['53:53/tcp', '53:53/udp', '3000:3000', '80:80'], volumes: ['adguard_work:/opt/adguardhome/work', 'adguard_conf:/opt/adguardhome/conf'], env: [] },
-    'Uptime Kuma': { image: 'louislam/uptime-kuma:latest', ports: ['3001:3001'], volumes: ['uptime_kuma_data:/app/data'], env: [] },
-    'Immich': { image: 'ghcr.io/immich-app/immich-server:release', ports: ['2283:3001'], volumes: ['immich_upload:/usr/src/app/upload'], env: ['DB_PASSWORD=changeme', 'REDIS_HOSTNAME=redis'] },
-    'Paperless-ngx': { image: 'ghcr.io/paperless-ngx/paperless-ngx:latest', ports: ['8000:8000'], volumes: ['paperless_data:/usr/src/paperless/data', 'paperless_media:/usr/src/paperless/media'], env: ['PAPERLESS_SECRET_KEY=changeme'] },
+    'plex': { image: 'plexinc/pms-docker:latest', ports: ['32400:32400'], volumes: ['plex_config:/config', 'plex_media:/media'], env: ['PLEX_CLAIM='] },
+    'jellyfin': { image: 'jellyfin/jellyfin:latest', ports: ['8096:8096'], volumes: ['jellyfin_config:/config', 'jellyfin_media:/media'], env: [] },
+    'sonarr': { image: 'linuxserver/sonarr:latest', ports: ['8989:8989'], volumes: ['sonarr_config:/config', 'media:/tv'], env: ['PUID=1000', 'PGID=1000'] },
+    'radarr': { image: 'linuxserver/radarr:latest', ports: ['7878:7878'], volumes: ['radarr_config:/config', 'media:/movies'], env: ['PUID=1000', 'PGID=1000'] },
+    'prowlarr': { image: 'linuxserver/prowlarr:latest', ports: ['9696:9696'], volumes: ['prowlarr_config:/config'], env: ['PUID=1000', 'PGID=1000'] },
+    'qbittorrent': { image: 'linuxserver/qbittorrent:latest', ports: ['8080:8080', '6881:6881'], volumes: ['qbt_config:/config', 'downloads:/downloads'], env: ['PUID=1000', 'PGID=1000'] },
+    'portainer': { image: 'portainer/portainer-ce:latest', ports: ['9000:9000', '9443:9443'], volumes: ['/var/run/docker.sock:/var/run/docker.sock', 'portainer_data:/data'], env: [] },
+    'nginx-proxy-manager': { image: 'jc21/nginx-proxy-manager:latest', ports: ['80:80', '443:443', '81:81'], volumes: ['npm_data:/data', 'npm_letsencrypt:/etc/letsencrypt'], env: [] },
+    'traefik': { image: 'traefik:v3.0', ports: ['80:80', '443:443', '8080:8080'], volumes: ['/var/run/docker.sock:/var/run/docker.sock', 'traefik_certs:/certs'], env: [] },
+    'grafana': { image: 'grafana/grafana:latest', ports: ['3000:3000'], volumes: ['grafana_data:/var/lib/grafana'], env: ['GF_SECURITY_ADMIN_PASSWORD=changeme'] },
+    'prometheus': { image: 'prom/prometheus:latest', ports: ['9090:9090'], volumes: ['prometheus_data:/prometheus', './prometheus.yml:/etc/prometheus/prometheus.yml:ro'], env: [] },
+    'home-assistant': { image: 'ghcr.io/home-assistant/home-assistant:stable', ports: ['8123:8123'], volumes: ['ha_config:/config'], env: [] },
+    'nextcloud': { image: 'nextcloud:latest', ports: ['8080:80'], volumes: ['nextcloud_data:/var/www/html'], env: ['MYSQL_HOST=db', 'MYSQL_DATABASE=nextcloud', 'MYSQL_USER=nextcloud', 'MYSQL_PASSWORD=changeme'] },
+    'vaultwarden': { image: 'vaultwarden/server:latest', ports: ['8080:80'], volumes: ['vaultwarden_data:/data'], env: ['ADMIN_TOKEN=changeme'] },
+    'gitea': { image: 'gitea/gitea:latest', ports: ['3000:3000', '2222:22'], volumes: ['gitea_data:/data'], env: [] },
+    'pi-hole': { image: 'pihole/pihole:latest', ports: ['53:53/tcp', '53:53/udp', '80:80'], volumes: ['pihole_etc:/etc/pihole', 'pihole_dnsmasq:/etc/dnsmasq.d'], env: ['WEBPASSWORD=changeme'] },
+    'adguard-home': { image: 'adguard/adguardhome:latest', ports: ['53:53/tcp', '53:53/udp', '3000:3000', '80:80'], volumes: ['adguard_work:/opt/adguardhome/work', 'adguard_conf:/opt/adguardhome/conf'], env: [] },
+    'uptime-kuma': { image: 'louislam/uptime-kuma:latest', ports: ['3001:3001'], volumes: ['uptime_kuma_data:/app/data'], env: [] },
+    'immich': { image: 'ghcr.io/immich-app/immich-server:release', ports: ['2283:3001'], volumes: ['immich_upload:/usr/src/app/upload'], env: ['DB_PASSWORD=changeme', 'REDIS_HOSTNAME=redis'] },
+    'paperless-ngx': { image: 'ghcr.io/paperless-ngx/paperless-ngx:latest', ports: ['8000:8000'], volumes: ['paperless_data:/usr/src/paperless/data', 'paperless_media:/usr/src/paperless/media'], env: ['PAPERLESS_SECRET_KEY=changeme'] },
+    'code-server': { image: 'codercom/code-server:latest', ports: ['8443:8080'], volumes: ['code_server_data:/home/coder'], env: ['PASSWORD=changeme'] },
+    'bytebase': { image: 'bytebase/bytebase:latest', ports: ['5678:5678'], volumes: ['bytebase_data:/var/opt/bytebase'], env: [] },
+    'mariadb': { image: 'mariadb:latest', ports: ['3306:3306'], volumes: ['mariadb_data:/var/lib/mysql'], env: ['MYSQL_ROOT_PASSWORD=changeme'] },
+    'postgres': { image: 'postgres:17', ports: ['5432:5432'], volumes: ['postgres_data:/var/lib/postgresql/data'], env: ['POSTGRES_PASSWORD=changeme'] },
+    'calibre-web': { image: 'linuxserver/calibre-web:latest', ports: ['8083:8083'], volumes: ['calibre_config:/config', 'calibre_books:/books'], env: ['PUID=1000', 'PGID=1000'] },
+    'kikoeru': { image: 'nortonandrews/kikoeru:latest', ports: ['8888:8888'], volumes: ['kikoeru_data:/app/data'], env: [] },
+    'photoprism': { image: 'photoprism/photoprism:latest', ports: ['2342:2342'], volumes: ['photoprism_storage:/photoprism/storage', 'photoprism_originals:/photoprism/originals'], env: ['PHOTOPRISM_ADMIN_PASSWORD=changeme'] },
+    'tautulli': { image: 'tautulli/tautulli:latest', ports: ['8181:8181'], volumes: ['tautulli_config:/config'], env: [] },
+    'kite': { image: 'nickvdyck/kite:latest', ports: ['3200:3000'], volumes: ['kite_data:/data'], env: [] },
+    'vault': { image: 'hashicorp/vault:latest', ports: ['8200:8200'], volumes: ['vault_data:/vault/data'], env: ['VAULT_DEV_ROOT_TOKEN_ID=changeme'] },
+    'velero': { image: 'velero/velero:latest', ports: ['8085:8085'], volumes: ['velero_data:/var/velero'], env: [] },
+    'oauth2-proxy': { image: 'quay.io/oauth2-proxy/oauth2-proxy:latest', ports: ['4180:4180'], volumes: [], env: ['OAUTH2_PROXY_CLIENT_ID=', 'OAUTH2_PROXY_CLIENT_SECRET=', 'OAUTH2_PROXY_COOKIE_SECRET='] },
 }
 
 function getServiceConfig(name: string) {
-    // Try exact match, then partial match
     if (SERVICE_IMAGES[name]) return SERVICE_IMAGES[name]
-    const key = Object.keys(SERVICE_IMAGES).find(k => name.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(name.toLowerCase()))
-    if (key) return SERVICE_IMAGES[key]
     // Fallback generic
-    const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-')
+    const slug = name.replace(/[^a-z0-9-]/g, '')
     return {
         image: `${slug}:latest`,
         ports: ['8080:8080'],

@@ -67,7 +67,7 @@ export function generateFastStartPayload(goal: string, scale: string) {
     switch (goal) {
         case 'media':
             pName = 'Media Server Lab';
-            serverVms.push({ id: uuidv4(), name: 'Plex', type: 'container', status: 'running', cpu_cores: 2, ram_mb: 4096 });
+            serverVms.push({ id: uuidv4(), name: 'plex', type: 'container', status: 'running', cpu_cores: 2, ram_mb: 4096 });
             serverVms.push({ id: uuidv4(), name: 'Storage Pool', type: 'vm', status: 'running', cpu_cores: 4, ram_mb: 8192 });
             break;
         case 'nas':
