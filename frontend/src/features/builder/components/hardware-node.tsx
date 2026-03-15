@@ -420,7 +420,6 @@ function ComponentChip({ component }: { component: HardwareComponent }) {
 }
 
 // ─── Main node card ────────────────────────────────────────────────────────────
-const CONTAINER_STEP = 10; // mirrors ROLE_ZONE step for compute types
 
 export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData = data as unknown as HardwareNodeData;
@@ -522,17 +521,6 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
     });
     return () => cancelAnimationFrame(raf1);
   }, [id, numPorts, connectedEdgeCount, updateNodeInternals, hasVMs, hasComponents, hasWarning]);
-
-  // Container pool range hint
-  const containerRangeHint =
-    isCompute && nodeData.ip
-      ? (() => {
-          const parts = nodeData.ip.split('.');
-          const last = parseInt(parts[3] ?? '0', 10);
-          const prefix = parts.slice(0, 3).join('.');
-          return `${prefix}.${last + 1} – .${last + CONTAINER_STEP - 1}`;
-        })()
-      : null;
 
   // Calculate dynamic width for high-port-count switches/routers/etc
   const dynamicMinWidth = nodeHasDynamicPorts(nodeData.type) ? numPorts * 16 : 0;
@@ -676,14 +664,12 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* Container pool hint */}
-            {containerRangeHint && (
-              <div className="flex items-center justify-between gap-2 px-1 opacity-60">
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
-                  <Container className="h-2.5 w-2.5" /> Pool:
-                </span>
-                <span className="font-mono text-[10px] text-blue-400 truncate">
-                  {containerRangeHint}
+            {/* Site URL hint */}
+            {nodeData.site && (
+              <div className="flex items-center gap-1.5 px-1 opacity-70">
+                <Globe className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                <span className="text-[10px] text-blue-400 truncate" title={nodeData.site}>
+                  {nodeData.site.replace(/^https?:\/\//, '')}
                 </span>
               </div>
             )}
