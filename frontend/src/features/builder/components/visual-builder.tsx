@@ -643,6 +643,10 @@ function Flow() {
             if (node.type === 'hardware') selectNode(node.id);
             else selectNode(null);
           }}
+          onNodeDoubleClick={(_, node) => {
+            const site = node.data?.site as string;
+            if (site) window.open(site, '_blank', 'noopener,noreferrer');
+          }}
           onPaneClick={() => selectNode(null)}
           connectionMode={ConnectionMode.Loose}
           fitView
