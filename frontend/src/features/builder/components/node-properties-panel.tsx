@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../../../lib/utils';
-import type { HardwareType } from '../../../types';
 import { InternalComponentManager } from './internal-component-manager';
 import { canNodeHostVMs, nodeHasCPU, nodeHasDynamicPorts, nodeHasRAM, nodeHasStorage, isNetworkNode, isComputeNode } from '../../../lib/hardware-config';
 import { getNodePortCount, parsePortCount } from '../lib/port-count';
@@ -350,25 +349,6 @@ export function NodePropertiesPanel() {
                 {hostNode.name}
               </p>
             </div>
-          </div>
-        )}
-
-        {/* VM Type selector — shown before name for VMs */}
-        {isVM && (
-          <div className="space-y-2">
-            <Label htmlFor="vm-type">VM Type</Label>
-            <select
-              id="vm-type"
-              className="w-full h-9 text-sm rounded-md border bg-background px-3"
-              value={selectedNode.type}
-              onChange={e => updateHardware(selectedNode.id, { type: e.target.value as HardwareType })}
-            >
-              <option value="server">Server</option>
-              <option value="nas">NAS</option>
-              <option value="pc">PC</option>
-              <option value="minipc">Mini PC</option>
-              <option value="sbc">SBC</option>
-            </select>
           </div>
         )}
 

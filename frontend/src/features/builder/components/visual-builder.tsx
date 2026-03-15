@@ -29,6 +29,8 @@ import {
   nodeHasDynamicPorts,
   canNodeBeNested,
   canNodeHostNested,
+  canNodeHostVMs,
+  isComputeNode,
   canNodeConnectToAny,
 } from '../../../lib/hardware-config';
 import { getNodePortCount } from '../lib/port-count';
@@ -515,8 +517,11 @@ function Flow() {
         } else if (targetType && !canHost && canNodeBeNested(data.type)) {
           toast.error(`Cannot add nested components to ${targetType}.`);
           return;
-        } else if (canHost && !canNodeBeNested(data.type)) {
-          // It's a full hardware node dropped on another, let it drop onto the canvas instead
+        }
+
+        if (targetType && canNodeHostVMs(targetType) && isComputeNode(data.type)) {
+          addVMNode(targetNode.id, data.type, data.name || `New ${data.type}`);
+          return;
         }
       }
 
