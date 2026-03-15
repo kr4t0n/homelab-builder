@@ -11,38 +11,31 @@ export function generateFastStartPayload(goal: string, scale: string) {
     const edges: Edge[] = [];
     const hardwareNodes: HardwareNode[] = [];
 
-    // Base IDs
     const routerId = uuidv4();
     const switchId = uuidv4();
     const serverId = uuidv4();
 
-    // 1. Add Router
     hardwareNodes.push({
         id: routerId,
         name: 'Core Router',
         type: 'router',
         x: 100, y: 100,
-        vms: [],
         internal_components: [],
         details: { model: 'pfSense Virtual Router' }
     });
 
-    // 2. Add Switch
     hardwareNodes.push({
         id: switchId,
         name: 'Main Switch',
         type: 'switch',
         x: 100, y: 300,
-        vms: [],
         internal_components: [],
         details: { ports: 24, speed: '1GbE' } as any
     });
 
-    // 3. Define Server hardware based on SCALE
     let serverName = 'Compute Node';
     let serverModel = '';
     let serverSpecs: Record<string, any> = {};
-    const serverVms: any[] = [];
 
     switch (scale) {
         case 'mini':
@@ -62,25 +55,44 @@ export function generateFastStartPayload(goal: string, scale: string) {
             break;
     }
 
-    // 4. Populate VMs/Containers based on GOAL
     let pName = 'Homelab Setup';
     switch (goal) {
         case 'media':
             pName = 'Media Server Lab';
-            serverVms.push({ id: uuidv4(), name: 'plex', type: 'container', status: 'running', cpu_cores: 2, ram_mb: 4096 });
-            serverVms.push({ id: uuidv4(), name: 'Storage Pool', type: 'vm', status: 'running', cpu_cores: 4, ram_mb: 8192 });
+            hardwareNodes.push({
+                id: uuidv4(), name: 'plex', type: 'server',
+                x: 600, y: 200, parent_id: serverId,
+                details: { cpu: 2, ram: 4096 },
+            });
+            hardwareNodes.push({
+                id: uuidv4(), name: 'Storage Pool', type: 'nas',
+                x: 600, y: 350, parent_id: serverId,
+                details: { cpu: 4, ram: 8192 },
+            });
             break;
         case 'nas':
             pName = 'Network Attached Storage';
-            serverVms.push({ id: uuidv4(), name: 'TrueNAS Scale', type: 'vm', status: 'running', cpu_cores: 4, ram_mb: 16384 });
+            hardwareNodes.push({
+                id: uuidv4(), name: 'TrueNAS Scale', type: 'nas',
+                x: 600, y: 200, parent_id: serverId,
+                details: { cpu: 4, ram: 16384 },
+            });
             break;
         case 'virtualization':
             pName = 'Virtualization Cluster';
-            serverVms.push({ id: uuidv4(), name: 'Proxmox VE Hub', type: 'vm', status: 'running', cpu_cores: 8, ram_mb: 32768 });
+            hardwareNodes.push({
+                id: uuidv4(), name: 'Proxmox VE Hub', type: 'server',
+                x: 600, y: 200, parent_id: serverId,
+                details: { cpu: 8, ram: 32768 },
+            });
             break;
         case 'network':
             pName = 'Network Topography Lab';
-            serverVms.push({ id: uuidv4(), name: 'Docker Host', type: 'vm', status: 'running', cpu_cores: 4, ram_mb: 8192 });
+            hardwareNodes.push({
+                id: uuidv4(), name: 'Docker Host', type: 'server',
+                x: 600, y: 200, parent_id: serverId,
+                details: { cpu: 4, ram: 8192 },
+            });
             break;
     }
 
@@ -89,41 +101,37 @@ export function generateFastStartPayload(goal: string, scale: string) {
         name: serverName,
         type: 'server',
         x: 400, y: 300,
-        vms: serverVms,
         internal_components: [],
         details: { model: serverModel, ...serverSpecs }
     });
 
-    // 5. Connect the Graph
     edges.push({ id: `e-${routerId}-${switchId}`, source: routerId, target: switchId, sourceHandle: 'eth1', targetHandle: 'eth0' });
     edges.push({ id: `e-${switchId}-${serverId}`, source: switchId, target: serverId, sourceHandle: 'eth1', targetHandle: 'eth0' });
 
-    // 6. Map to React Flow native DOM nodes array
     hardwareNodes.forEach(hn => {
-        nodes.push({
-            id: hn.id,
-            type: 'hardware',
-            position: { x: hn.x, y: hn.y },
-            data: hn as unknown as Record<string, unknown>
-        });
+        if (!hn.parent_id) {
+            nodes.push({
+                id: hn.id,
+                type: 'hardware',
+                position: { x: hn.x, y: hn.y },
+                data: hn as unknown as Record<string, unknown>
+            });
+        }
     });
 
     return {
         name: pName,
-        nodes: nodes.map(rfn => {
-            const h = hardwareNodes.find(n => n.id === rfn.id);
-            return {
-                id: rfn.id,
-                type: h?.type || 'server',
-                name: h?.name || '',
-                x: rfn.position.x,
-                y: rfn.position.y,
-                ip: '',
-                details: (h?.details as any) || {},
-                vms: h?.vms || [],
-                internal_components: h?.internal_components || []
-            }
-        }),
+        nodes: hardwareNodes.map(h => ({
+            id: h.id,
+            type: h.type,
+            name: h.name,
+            x: h.x,
+            y: h.y,
+            ip: '',
+            details: (h.details as any) || {},
+            parent_id: h.parent_id,
+            internal_components: h.internal_components || [],
+        })),
         edges: edges.map(e => ({
             source: e.source,
             target: e.target

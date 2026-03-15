@@ -157,21 +157,6 @@ export interface HardwareSpec {
   dhcp_locked?: boolean;
 }
 
-export type VMType = 'vm' | 'container' | 'lxc';
-
-export interface VirtualMachine {
-  id: string;
-  name: string;
-  type: VMType;
-  ip?: string;
-  tailscale_ip?: string;
-  os?: string; // e.g. "Ubuntu 22.04", "Alpine Linux"
-  cpu_cores?: number;
-  ram_mb?: number;
-  status: 'running' | 'stopped' | 'paused';
-  passthrough?: string[]; // IDs of parent node's internal_components passed through
-}
-
 export interface HardwareComponent {
   id: string;
   type: HardwareType;
@@ -191,8 +176,8 @@ export interface HardwareNode {
   x: number;
   y: number;
   details?: HardwareSpec;
-  vms?: VirtualMachine[]; // Nested VMs / Containers
-  internal_components?: HardwareComponent[]; // Nested hardware (GPU, Disk, etc)
+  internal_components?: HardwareComponent[];
+  parent_id?: string;
 }
 
 // ─── Kubernetes Cluster Topology ────────────────────────────────────────────
@@ -213,7 +198,6 @@ export interface K8sCluster {
 
 export interface K8sMember {
   node_id: string;
-  vm_id?: string;
   role: K8sRole;
   cluster_id: string;
 }

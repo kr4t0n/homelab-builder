@@ -1,4 +1,4 @@
-import type { VirtualMachine } from '../../../types';
+import type { HardwareNode } from '../../../types';
 
 export type ResourceUsage = {
   cpu: number;
@@ -6,18 +6,13 @@ export type ResourceUsage = {
   storageGb: number;
 };
 
-export const vmConsumesHostResources = (vm: VirtualMachine): boolean => vm.status !== 'stopped';
-
-export const getVmResourceUsage = (vms: VirtualMachine[] = []): ResourceUsage =>
-  vms.reduce<ResourceUsage>(
+export const getVmResourceUsage = (childVMs: HardwareNode[] = []): ResourceUsage =>
+  childVMs.reduce<ResourceUsage>(
     (usage, vm) => {
-      if (!vmConsumesHostResources(vm)) {
-        return usage;
-      }
-
-      usage.cpu += vm.cpu_cores || 1;
-      usage.ramMb += vm.ram_mb || 512;
-      usage.storageGb += 10;
+      usage.cpu += Number(vm.details?.cpu) || 0;
+      const ram = Number(vm.details?.ram) || 0;
+      usage.ramMb += ram < 1000 ? ram * 1024 : ram;
+      usage.storageGb += Number(vm.details?.storage) || 0;
       return usage;
     },
     { cpu: 0, ramMb: 0, storageGb: 0 },

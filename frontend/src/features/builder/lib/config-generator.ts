@@ -173,7 +173,7 @@ export function generateAnsibleInventory(nodes: HardwareNode[], _ipOpts: IpAlloc
 
         // Add VMs as children or separate hosts?
         // For now, let's list VMs as separate hosts in inventory if they have IPs
-        node.vms?.forEach(vm => {
+        nodes.filter(n => n.parent_id === node.id).forEach(vm => {
             const vmSlug = vm.name.toLowerCase().replace(/[^a-z0-9]/g, '_')
             if (vm.ip) {
                 lines.push(`${vmSlug} ansible_host=${vm.ip} ansible_user=ubuntu # VM on ${node.name}`)
@@ -205,9 +205,6 @@ export function generateIpPlan(nodes: HardwareNode[], _opts: IpAllocatorOptions)
 
     nodes.forEach(n => {
         if (n.ip) allItems.push({ name: n.name, ip: n.ip, type: n.type })
-        n.vms?.forEach(vm => {
-            if (vm.ip) allItems.push({ name: vm.name, ip: vm.ip, type: vm.type })
-        })
     })
 
     // Sort by IP

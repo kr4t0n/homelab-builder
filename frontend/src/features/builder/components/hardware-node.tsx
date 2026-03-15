@@ -8,9 +8,7 @@ import {
   HardDrive,
   Wifi,
   Monitor,
-  Box,
   Cpu,
-  Container,
   Layers,
   Plug,
   Battery,
@@ -26,7 +24,6 @@ import { Card } from '../../../components/ui/card';
 import { cn } from '../../../lib/utils';
 import type {
   HardwareType,
-  VirtualMachine,
   HardwareComponent,
   HardwareSpec,
   HardwareNodeValidationIssue,
@@ -34,7 +31,6 @@ import type {
 import { isComputeNode, nodeHasDynamicPorts, isNetworkNode } from '../../../lib/hardware-config';
 import { useBuilderStore } from '../store/builder-store';
 import type { K8sMember, K8sCluster } from '../../../types';
-import { getVmResourceUsage } from '../lib/resource-usage';
 import { getNodePortCount } from '../lib/port-count';
 
 type HardwareNodeData = {
@@ -43,10 +39,10 @@ type HardwareNodeData = {
   ip?: string;
   tailscale_ip?: string;
   site?: string;
-  vms?: VirtualMachine[];
   internal_components?: HardwareComponent[];
   status?: 'online' | 'offline' | 'warning';
   details?: HardwareSpec;
+  parent_id?: string;
 };
 
 // ─── Per-type icon + color ─────────────────────────────────────────────────────
@@ -320,82 +316,6 @@ function ValidationTooltip({
   );
 }
 
-// ─── VM chip ───────────────────────────────────────────────────────────────────
-const VM_TYPE_ICON: Record<string, React.ElementType> = {
-  vm: Cpu,
-  container: Container,
-  lxc: Box,
-};
-const VM_TYPE_COLOR: Record<string, string> = {
-  vm: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
-  container: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-  lxc: 'bg-green-500/10 text-green-400 border-green-500/30',
-};
-
-const PT_TYPE_LABEL: Record<string, string> = {
-  gpu: 'GPU',
-  hba: 'HBA',
-  pcie: 'PCIe',
-  disk: 'Disk',
-};
-
-function VmChip({ vm, components }: { vm: VirtualMachine; components?: HardwareComponent[] }) {
-  const Icon = VM_TYPE_ICON[vm.type] ?? Box;
-  const colorClass = VM_TYPE_COLOR[vm.type] ?? 'bg-gray-500/10 text-gray-400 border-gray-500/30';
-  const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
-
-  const ptComponents = (vm.passthrough || [])
-    .map(id => components?.find(c => c.id === id))
-    .filter(Boolean) as HardwareComponent[];
-
-  return (
-    <div
-      className={cn(
-        'flex items-start gap-1.5 rounded border px-1.5 py-1.5 text-[10px] font-mono',
-        colorClass,
-      )}
-    >
-      <Icon className="h-2.5 w-2.5 shrink-0 mt-0.5" />
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <div className="truncate font-semibold max-w-20" title={vm.name}>
-          {vm.name}
-        </div>
-        <div className={cn('text-[9px]', vm.ip ? 'opacity-90' : 'opacity-40 italic')}>
-          {vm.ip || 'no IP'}
-        </div>
-        {tailscaleEnabled && vm.tailscale_ip && (
-          <div className="text-[8px] text-blue-400 opacity-80">
-            {vm.tailscale_ip}
-          </div>
-        )}
-        {ptComponents.length > 0 && (
-          <div className="flex flex-wrap gap-0.5 pt-0.5">
-            {ptComponents.map(c => (
-              <span
-                key={c.id}
-                className="inline-flex items-center rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1 py-0.5 text-[7px] font-semibold leading-tight"
-                title={c.name}
-              >
-                {PT_TYPE_LABEL[c.type] || c.type.toUpperCase()}: {c.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      <div
-        className={cn(
-          'h-1.5 w-1.5 rounded-full shrink-0',
-          vm.status === 'running'
-            ? 'bg-green-400'
-            : vm.status === 'paused'
-              ? 'bg-yellow-400'
-              : 'bg-gray-400',
-        )}
-      />
-    </div>
-  );
-}
-
 function ComponentChip({ component }: { component: HardwareComponent }) {
   const cfg = TYPE_CONFIG[component.type] ?? FALLBACK_CONFIG;
   const Icon = cfg.icon;
@@ -428,40 +348,47 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
   const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
   const k8sMembers = useBuilderStore(s => s.k8sMembers);
   const k8sClusters = useBuilderStore(s => s.k8sClusters);
-  const vms = nodeData.vms ?? [];
   const components = nodeData.internal_components ?? [];
+  const isVM = !!nodeData.parent_id;
 
-  const nodeK8s = k8sMembers.find((m: K8sMember) => m.node_id === id && !m.vm_id);
+  const nodeK8s = k8sMembers.find((m: K8sMember) => m.node_id === id);
   const nodeK8sCluster = nodeK8s ? k8sClusters.find((c: K8sCluster) => c.id === nodeK8s.cluster_id) : null;
-  const hasVMs = vms.length > 0;
   const hasComponents = components.length > 0;
   const isCompute = isComputeNode(nodeData.type);
+
+  // For host nodes: count child VMs for resource calculation
+  const hardwareNodes = useBuilderStore(s => s.hardwareNodes);
+  const childVMs = hardwareNodes.filter(n => n.parent_id === id);
+  const childVMCount = childVMs.length;
 
   const validationIssues = useBuilderStore(s => s.validationIssues);
   const nodeIssues = validationIssues.filter((i: HardwareNodeValidationIssue) => i.node_id === id);
   const hasIpError = nodeIssues.some((i: HardwareNodeValidationIssue) => i.type === 'error');
   const hasIpWarning = nodeIssues.some((i: HardwareNodeValidationIssue) => i.type === 'warning');
 
-  // React flow handles dynamically
   const updateNodeInternals = useUpdateNodeInternals();
-  const numPorts = nodeHasDynamicPorts(nodeData.type)
+  const numPorts = !isVM && nodeHasDynamicPorts(nodeData.type)
       ? Math.max(1, getNodePortCount(nodeData.type, nodeData.details?.ports) - 1)
-      : 1;
+      : isVM ? 0 : 1;
 
-  // Resource calculations
-  const { cpu: usedCpu, ramMb: usedRam } = getVmResourceUsage(vms);
+  // Resource calculations for host nodes
+  const usedCpu = childVMs.reduce((acc, vm) => acc + (Number(vm.details?.cpu) || 0), 0);
+  const usedRam = childVMs.reduce((acc, vm) => {
+    const ram = Number(vm.details?.ram) || 0;
+    return acc + (ram < 1000 ? ram * 1024 : ram);
+  }, 0);
 
   const totalCpu = Number(nodeData.details?.cpu) || 0;
   const totalRamGB = Number(nodeData.details?.ram) || 0;
   const totalRamMB = totalRamGB < 1000 ? totalRamGB * 1024 : totalRamGB;
 
-  const cpuWarning = totalCpu > 0 && usedCpu > totalCpu;
-  const ramWarning = totalRamMB > 0 && usedRam > totalRamMB;
+  const cpuWarning = !isVM && totalCpu > 0 && usedCpu > totalCpu;
+  const ramWarning = !isVM && totalRamMB > 0 && usedRam > totalRamMB;
   const hasResourceWarning = cpuWarning || ramWarning;
 
   const cpuUsageRatio = totalCpu > 0 ? usedCpu / totalCpu : 0;
   const ramUsageRatio = totalRamMB > 0 ? usedRam / totalRamMB : 0;
-  const maxResourceUsage = Math.max(cpuUsageRatio, ramUsageRatio);
+  const maxResourceUsage = isVM ? 0 : Math.max(cpuUsageRatio, ramUsageRatio);
 
   const hasWarning = hasResourceWarning || maxResourceUsage >= 0.8 || hasIpError || hasIpWarning;
 
@@ -502,16 +429,10 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
       .join('\n');
   }
 
-  // Count edges connected to this node so updateNodeInternals re-fires when
-  // a new connection is made (otherwise new edges render at center-bottom).
   const connectedEdgeCount = useBuilderStore(s =>
     s.edges.reduce((n, e) => n + (e.source === id || e.target === id ? 1 : 0), 0),
   );
 
-  // Double-rAF defers the call past ReactFlow's own internal render cycle.
-  // useLayoutEffect fires before ReactFlow re-processes its node graph, so it
-  // reads stale handle positions on the first change. By waiting two frames
-  // we guarantee ReactFlow has settled and getBoundingClientRect is correct.
   useEffect(() => {
     const raf1 = requestAnimationFrame(() => {
       const raf2 = requestAnimationFrame(() => {
@@ -520,14 +441,12 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
       return () => cancelAnimationFrame(raf2);
     });
     return () => cancelAnimationFrame(raf1);
-  }, [id, numPorts, connectedEdgeCount, updateNodeInternals, hasVMs, hasComponents, hasWarning]);
+  }, [id, numPorts, connectedEdgeCount, updateNodeInternals, hasComponents, hasWarning, childVMCount]);
 
-  // Calculate dynamic width for high-port-count switches/routers/etc
-  const dynamicMinWidth = nodeHasDynamicPorts(nodeData.type) ? numPorts * 16 : 0;
+  const dynamicMinWidth = !isVM && nodeHasDynamicPorts(nodeData.type) ? numPorts * 16 : 0;
 
   return (
     <div className="relative group">
-      {/* Animated ring on selection — uses device accent color */}
       {selected && (
         <div
           className="absolute -inset-1 -z-10 rounded-2xl pointer-events-none node-selected-ring"
@@ -538,17 +457,18 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
       <Card
         className={cn(
           'transition-[border-color,box-shadow,background-color,transform,opacity] duration-200 ease-out border shadow-none bg-card overflow-hidden border-t-2',
-          hasVMs || hasComponents ? 'w-56' : 'w-48',
+          isVM ? 'w-44' : hasComponents ? 'w-56' : 'w-48',
+          isVM ? 'border-dashed border-violet-500/50' : '',
           hasResourceWarning || hasIpError
             ? 'border-destructive shadow-[0_0_10px_rgba(239,68,68,0.3)]'
             : maxResourceUsage >= 0.8 || hasIpWarning
               ? 'border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.3)]'
-              : 'border-border',
+              : isVM ? '' : 'border-border',
           hasIpError ? 'bg-destructive/5' : '',
           selected ? 'scale-[1.02]' : 'hover:border-primary/50',
         )}
         style={{
-          borderTopColor: selected ? undefined : cfg.color,
+          borderTopColor: isVM ? undefined : (selected ? undefined : cfg.color),
           ...(dynamicMinWidth > 192 ? { minWidth: `${dynamicMinWidth}px` } : {}),
         }}
       >
@@ -569,6 +489,12 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
           <span className="font-semibold text-sm truncate flex-1" title={nodeData.label}>
             {nodeData.label}
           </span>
+
+          {isVM && (
+            <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 shrink-0">
+              VM
+            </span>
+          )}
 
           {hasWarning && (
             <ValidationTooltip
@@ -600,18 +526,15 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
         {(nodeData.details?.model ||
           !isNetworkNode(nodeData.type) ||
           hasComponents ||
-          hasVMs ||
           nodeData.details?.cpu ||
           nodeData.details?.ram) && (
           <div className="p-2.5 bg-card space-y-1.5">
-            {/* Model subtitle */}
             {nodeData.details?.model && (
               <p className="text-[9px] text-muted-foreground/70 truncate -mt-0.5">
                 {nodeData.details.model}
               </p>
             )}
 
-            {/* IP Address - Only for networked devices */}
             {isNetworkNode(nodeData.type) && (
               <div className="flex items-center justify-between gap-2 pt-1 px-1">
                 <span className="text-[11px] text-muted-foreground tracking-wide font-medium">
@@ -628,7 +551,6 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* Tailscale IP */}
             {tailscaleEnabled && isNetworkNode(nodeData.type) && (
               <div className="flex items-center justify-between gap-2 px-1">
                 <span className="text-[10px] text-blue-400 tracking-wide font-medium">
@@ -645,7 +567,6 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* K8s cluster badge */}
             {nodeK8sCluster && nodeK8s && (
               <div className="flex items-center gap-1.5 px-1">
                 <div
@@ -664,7 +585,6 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* Site URL hint */}
             {nodeData.site && (
               <div className="flex items-center gap-1.5 px-1 opacity-70">
                 <Globe className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
@@ -674,7 +594,6 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* Spec chips */}
             {(nodeData.details?.cpu || nodeData.details?.ram || nodeData.details?.storage) && (
               <div className="flex flex-wrap gap-1 pt-0.5">
                 {nodeData.details.cpu && (
@@ -725,22 +644,16 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
               </div>
             )}
 
-            {/* VMs / Containers */}
-            {hasVMs && (
-              <div className="space-y-1 pt-2 border-t border-border">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-1">
-                  {vms.length} container{vms.length !== 1 ? 's' : ''}
+            {/* VM count for host nodes */}
+            {!isVM && isCompute && childVMCount > 0 && (
+              <div className="pt-2 border-t border-border">
+                <p className="text-[10px] uppercase tracking-wider text-violet-400 font-medium px-1">
+                  {childVMCount} VM{childVMCount !== 1 ? 's' : ''}
                 </p>
-                <div className="space-y-1">
-                  {vms.map(vm => (
-                    <VmChip key={vm.id} vm={vm} components={components} />
-                  ))}
-                </div>
               </div>
             )}
 
-            {/* Empty compute hint */}
-            {isCompute && !hasVMs && !hasComponents && (
+            {isCompute && !isVM && childVMCount === 0 && !hasComponents && (
               <p className="text-[9px] text-muted-foreground/40 italic text-center py-0.5">
                 drop components here
               </p>
@@ -749,39 +662,49 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
         )}
       </Card>
 
-      {/* Target Port (Top, for incoming cables) */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="target-0"
-        className="bg-muted-foreground! w-3 h-1.5 border! border-background! rounded-sm! hover:bg-primary! hover:scale-125 transition-all"
-      />
+      {isVM ? (
+        /* VM nodes: invisible handles so virtual edges can connect */
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="target-0"
+          className="!w-0 !h-0 !min-w-0 !min-h-0 !border-0 !bg-transparent !opacity-0"
+          isConnectable={false}
+        />
+      ) : (
+        <>
+          <Handle
+            type="target"
+            position={Position.Top}
+            id="target-0"
+            className="bg-muted-foreground! w-3 h-1.5 border! border-background! rounded-sm! hover:bg-primary! hover:scale-125 transition-all"
+          />
 
-      {/* Source Ports (Bottom, for outgoing cables) */}
-      {nodeHasDynamicPorts(nodeData.type) ? (
-        (() => {
-          const portSpacing = 100 / (numPorts + 1);
-          return Array.from({ length: numPorts }).map((_, i) => (
+          {nodeHasDynamicPorts(nodeData.type) ? (
+            (() => {
+              const portSpacing = 100 / (numPorts + 1);
+              return Array.from({ length: numPorts }).map((_, i) => (
+                <Handle
+                  key={`port-eth${i}`}
+                  id={`eth${i}`}
+                  type="source"
+                  position={Position.Bottom}
+                  style={{ left: `${portSpacing * (i + 1)}%` }}
+                  className="bg-muted-foreground! w-2 h-2 border! border-background! rounded-sm! hover:bg-primary! hover:scale-125 transition-all"
+                  title={`eth${i}`}
+                />
+              ));
+            })()
+          ) : (
             <Handle
-              key={`port-eth${i}`}
-              id={`eth${i}`}
+              id="eth0"
               type="source"
               position={Position.Bottom}
-              style={{ left: `${portSpacing * (i + 1)}%` }}
-              className="bg-muted-foreground! w-2 h-2 border! border-background! rounded-sm! hover:bg-primary! hover:scale-125 transition-all"
-              title={`eth${i}`}
+              className="bg-muted-foreground! w-3 h-3 border-2! border-background! rounded-sm! hover:bg-primary! hover:scale-125 transition-all"
+              title="eth0"
             />
-          ));
-        })()
-      ) : (
-        // 1 Port for all other components (servers, PCs, UPS, HBA, GPU)
-        <Handle
-          id="eth0"
-          type="source"
-          position={Position.Bottom}
-          className="bg-muted-foreground! w-3 h-3 border-2! border-background! rounded-sm! hover:bg-primary! hover:scale-125 transition-all"
-          title="eth0"
-        />
+          )}
+        </>
       )}
     </div>
   );

@@ -149,12 +149,8 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
   const getClusterWorkloads = (clusterId: string) =>
     k8sWorkloads.filter(w => w.cluster_id === clusterId);
 
-  const getMemberLabel = (m: { node_id: string; vm_id?: string; role: string }) => {
+  const getMemberLabel = (m: { node_id: string; role: string }) => {
     const node = hardwareNodes.find(n => n.id === m.node_id);
-    if (m.vm_id) {
-      const vm = node?.vms?.find(v => v.id === m.vm_id);
-      return vm?.name || 'Unknown VM';
-    }
     return node?.name || 'Unknown';
   };
 

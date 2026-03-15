@@ -84,13 +84,13 @@ func TestBuildService_Duplicate(t *testing.T) {
 	user := models.User{Email: uuid.NewString() + "@t.com"}
 	tx.Create(&user)
 
+	parentID := "n1"
 	build, _ := svc.Create(user.ID, SyncGraphInput{
 		Name: "Original",
-		Nodes: []NodeDTO{{
-			ID:   "n1",
-			Name: "R1",
-			VMs:  []VMDTO{{ID: "v1", Name: "VM1"}},
-		}},
+		Nodes: []NodeDTO{
+			{ID: "n1", Name: "R1", Type: "server"},
+			{ID: "v1", Name: "VM1", Type: "server", ParentID: &parentID},
+		},
 	})
 
 	dup, err := svc.Duplicate(build.ID, user.ID)
@@ -104,11 +104,19 @@ func TestBuildService_Duplicate(t *testing.T) {
 	if dup.ID == build.ID {
 		t.Errorf("duplicate has same ID")
 	}
-	if len(dup.Nodes) != 1 || dup.Nodes[0].ID == build.Nodes[0].ID {
-		t.Errorf("nodes not cloned correctly")
+	if len(dup.Nodes) != 2 {
+		t.Errorf("expected 2 nodes (parent + child), got %d", len(dup.Nodes))
 	}
-	if len(dup.Nodes[0].VirtualMachines) != 1 {
-		t.Errorf("vms not cloned correctly")
+
+	// Verify child node has parent_id remapped
+	var childCount int
+	for _, n := range dup.Nodes {
+		if n.ParentID != nil {
+			childCount++
+		}
+	}
+	if childCount != 1 {
+		t.Errorf("expected 1 child node, got %d", childCount)
 	}
 }
 

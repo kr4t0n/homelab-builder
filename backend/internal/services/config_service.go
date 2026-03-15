@@ -87,7 +87,7 @@ func randomSecret(length int) string {
 // GenerateDockerCompose generates a Docker Compose YAML string for a build ID
 func (s *ConfigService) GenerateDockerCompose(buildID uuid.UUID) (string, error) {
 	var build models.Build
-	if err := s.db.Preload("Nodes.VirtualMachines").First(&build, "id = ?", buildID).Error; err != nil {
+	if err := s.db.Preload("Nodes").First(&build, "id = ?", buildID).Error; err != nil {
 		return "", err
 	}
 
@@ -97,8 +97,8 @@ func (s *ConfigService) GenerateDockerCompose(buildID uuid.UUID) (string, error)
 	allVolumes := make(map[string]bool)
 	var subnet string
 
+	// Child nodes (VMs) are nodes with parent_id set
 	for _, node := range build.Nodes {
-		// Attempt to extract root subnet from router IP
 		if node.Type == "router" && node.IP != "" && subnet == "" {
 			parts := strings.Split(node.IP, ".")
 			if len(parts) == 4 {
@@ -106,59 +106,60 @@ func (s *ConfigService) GenerateDockerCompose(buildID uuid.UUID) (string, error)
 			}
 		}
 
-		for _, vm := range node.VirtualMachines {
-			hasVMs = true
-			cfg := getServiceConfig(vm.Name)
-			slug := strings.ReplaceAll(strings.ToLower(vm.Name), " ", "_")
-
-			composeStr += fmt.Sprintf("  %s:\n", slug)
-			composeStr += fmt.Sprintf("    image: %s\n", cfg.Image)
-			composeStr += fmt.Sprintf("    container_name: %s\n", slug)
-			composeStr += "    restart: unless-stopped\n"
-
-			if len(cfg.Ports) > 0 {
-				composeStr += "    ports:\n"
-				for _, p := range cfg.Ports {
-					composeStr += fmt.Sprintf("      - \"%s\"\n", p)
-				}
-			}
-
-			if len(cfg.Volumes) > 0 {
-				composeStr += "    volumes:\n"
-				for _, v := range cfg.Volumes {
-					composeStr += fmt.Sprintf("      - %s\n", v)
-					name := strings.SplitN(v, ":", 2)[0]
-					if !strings.HasPrefix(name, "/") && !strings.HasPrefix(name, ".") {
-						allVolumes[name] = true
-					}
-				}
-			}
-
-			if len(cfg.Env) > 0 {
-				composeStr += "    environment:\n"
-				for _, e := range cfg.Env {
-					composeStr += fmt.Sprintf("      - %s\n", e)
-				}
-			}
-
-			// If it has an IP assigned
-			if vm.IP != "" {
-				composeStr += "    networks:\n"
-				composeStr += "      homelab_net:\n"
-				composeStr += fmt.Sprintf("        ipv4_address: %s\n", vm.IP)
-
-				if subnet == "" {
-					parts := strings.Split(vm.IP, ".")
-					if len(parts) == 4 {
-						subnet = fmt.Sprintf("%s.%s.%s.0/24", parts[0], parts[1], parts[2])
-					}
-				}
-			} else {
-				composeStr += "    networks:\n"
-				composeStr += "      - homelab_net\n"
-			}
-			composeStr += "\n"
+		if node.ParentID == nil {
+			continue
 		}
+
+		hasVMs = true
+		cfg := getServiceConfig(node.Name)
+		slug := strings.ReplaceAll(strings.ToLower(node.Name), " ", "_")
+
+		composeStr += fmt.Sprintf("  %s:\n", slug)
+		composeStr += fmt.Sprintf("    image: %s\n", cfg.Image)
+		composeStr += fmt.Sprintf("    container_name: %s\n", slug)
+		composeStr += "    restart: unless-stopped\n"
+
+		if len(cfg.Ports) > 0 {
+			composeStr += "    ports:\n"
+			for _, p := range cfg.Ports {
+				composeStr += fmt.Sprintf("      - \"%s\"\n", p)
+			}
+		}
+
+		if len(cfg.Volumes) > 0 {
+			composeStr += "    volumes:\n"
+			for _, v := range cfg.Volumes {
+				composeStr += fmt.Sprintf("      - %s\n", v)
+				name := strings.SplitN(v, ":", 2)[0]
+				if !strings.HasPrefix(name, "/") && !strings.HasPrefix(name, ".") {
+					allVolumes[name] = true
+				}
+			}
+		}
+
+		if len(cfg.Env) > 0 {
+			composeStr += "    environment:\n"
+			for _, e := range cfg.Env {
+				composeStr += fmt.Sprintf("      - %s\n", e)
+			}
+		}
+
+		if node.IP != "" {
+			composeStr += "    networks:\n"
+			composeStr += "      homelab_net:\n"
+			composeStr += fmt.Sprintf("        ipv4_address: %s\n", node.IP)
+
+			if subnet == "" {
+				parts := strings.Split(node.IP, ".")
+				if len(parts) == 4 {
+					subnet = fmt.Sprintf("%s.%s.%s.0/24", parts[0], parts[1], parts[2])
+				}
+			}
+		} else {
+			composeStr += "    networks:\n"
+			composeStr += "      - homelab_net\n"
+		}
+		composeStr += "\n"
 	}
 
 	if len(allVolumes) > 0 {
@@ -191,7 +192,7 @@ func (s *ConfigService) GenerateDockerCompose(buildID uuid.UUID) (string, error)
 // GenerateEnv generates a .env file string for the given build ID based on VMs requiring passwords/secrets
 func (s *ConfigService) GenerateEnv(buildID uuid.UUID) (string, error) {
 	var build models.Build
-	if err := s.db.Preload("Nodes.VirtualMachines").First(&build, "id = ?", buildID).Error; err != nil {
+	if err := s.db.Preload("Nodes").First(&build, "id = ?", buildID).Error; err != nil {
 		return "", err
 	}
 
@@ -203,36 +204,38 @@ func (s *ConfigService) GenerateEnv(buildID uuid.UUID) (string, error) {
 
 	seen := make(map[string]bool)
 	for _, node := range build.Nodes {
-		for _, vm := range node.VirtualMachines {
-			cfg := getServiceConfig(vm.Name)
-
-			var relevant []string
-			for _, e := range cfg.Env {
-				if strings.Contains(e, "PASSWORD") || strings.Contains(e, "SECRET") || strings.Contains(e, "TOKEN") || strings.Contains(e, "KEY") {
-					relevant = append(relevant, e)
-				}
-			}
-
-			if len(relevant) == 0 {
-				continue
-			}
-
-			envStr += fmt.Sprintf("# ── %s ──────────────────────────────────────────────────────────\n", vm.Name)
-			for _, e := range relevant {
-				parts := strings.SplitN(e, "=", 2)
-				key := parts[0]
-				if !seen[key] {
-					seen[key] = true
-					isSecret := strings.Contains(key, "SECRET") || strings.Contains(key, "TOKEN") || strings.Contains(key, "KEY")
-					val := "changeme_" + strings.ToLower(key)
-					if isSecret {
-						val = randomSecret(32)
-					}
-					envStr += fmt.Sprintf("%s=%s\n", key, val)
-				}
-			}
-			envStr += "\n"
+		if node.ParentID == nil {
+			continue
 		}
+
+		cfg := getServiceConfig(node.Name)
+
+		var relevant []string
+		for _, e := range cfg.Env {
+			if strings.Contains(e, "PASSWORD") || strings.Contains(e, "SECRET") || strings.Contains(e, "TOKEN") || strings.Contains(e, "KEY") {
+				relevant = append(relevant, e)
+			}
+		}
+
+		if len(relevant) == 0 {
+			continue
+		}
+
+		envStr += fmt.Sprintf("# ── %s ──────────────────────────────────────────────────────────\n", node.Name)
+		for _, e := range relevant {
+			parts := strings.SplitN(e, "=", 2)
+			key := parts[0]
+			if !seen[key] {
+				seen[key] = true
+				isSecret := strings.Contains(key, "SECRET") || strings.Contains(key, "TOKEN") || strings.Contains(key, "KEY")
+				val := "changeme_" + strings.ToLower(key)
+				if isSecret {
+					val = randomSecret(32)
+				}
+				envStr += fmt.Sprintf("%s=%s\n", key, val)
+			}
+		}
+		envStr += "\n"
 	}
 
 	return envStr, nil
@@ -241,18 +244,17 @@ func (s *ConfigService) GenerateEnv(buildID uuid.UUID) (string, error) {
 // GenerateAnsibleInventory generates an Ansible inventory string for the hardware nodes
 func (s *ConfigService) GenerateAnsibleInventory(buildID uuid.UUID) (string, error) {
 	var build models.Build
-	if err := s.db.Preload("Nodes.VirtualMachines").First(&build, "id = ?", buildID).Error; err != nil {
+	if err := s.db.Preload("Nodes").First(&build, "id = ?", buildID).Error; err != nil {
 		return "", err
 	}
 
 	invStr := "[homelab]\n"
 	for _, node := range build.Nodes {
 		if node.IP != "" {
-			invStr += fmt.Sprintf("node_%s ansible_host=%s ansible_user=ubuntu\n", node.ID.String()[:8], node.IP)
-		}
-		for _, vm := range node.VirtualMachines {
-			if vm.IP != "" {
-				invStr += fmt.Sprintf("%s ansible_host=%s ansible_user=ubuntu\n", vm.Name, vm.IP)
+			if node.ParentID != nil {
+				invStr += fmt.Sprintf("%s ansible_host=%s ansible_user=ubuntu\n", node.Name, node.IP)
+			} else {
+				invStr += fmt.Sprintf("node_%s ansible_host=%s ansible_user=ubuntu\n", node.ID.String()[:8], node.IP)
 			}
 		}
 	}

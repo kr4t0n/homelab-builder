@@ -39,13 +39,8 @@ export default function ChecklistPage() {
   // Collect all unique service names deployed
   const deployedServices = new Set<string>();
   hardwareNodes.forEach(node => {
-    if (
-      node.type === 'server' ||
-      node.type === 'pc' ||
-      node.type === 'minipc' ||
-      node.type === 'sbc'
-    ) {
-      node.vms?.forEach(vm => deployedServices.add(vm.name.toLowerCase()));
+    if (node.parent_id) {
+      deployedServices.add(node.name.toLowerCase());
     }
   });
 

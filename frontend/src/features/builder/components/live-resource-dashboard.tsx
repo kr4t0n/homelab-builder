@@ -65,9 +65,10 @@ export function LiveResourceDashboard() {
         });
       }
 
-      // Usage based on deployed VMs/Services
-      if (node.vms) {
-        const usage = getVmResourceUsage(node.vms);
+      // Usage based on deployed VMs (child nodes)
+      const childVMs = hardwareNodes.filter(n => n.parent_id === node.id);
+      if (childVMs.length > 0) {
+        const usage = getVmResourceUsage(childVMs);
         usedCpuThreads += usage.cpu;
         usedRamMb += usage.ramMb;
         usedStorageGb += usage.storageGb;

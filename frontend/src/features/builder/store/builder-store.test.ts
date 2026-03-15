@@ -7,7 +7,7 @@
  *    — if calculate runs first the backend reads stale/empty relational tables →
  *      "no router found" 500 error.
  *
- * 2. addHardware / addVM / duplicateHardware must NOT trigger reassignAllIPs
+ * 2. addHardware / addVMNode / duplicateHardware must NOT trigger reassignAllIPs
  *    — only onConnect should (prevents unnecessary API calls on every node drop).
  *
  * 3. onConnect MUST trigger reassignAllIPs so nodes get IPs when first wired up.
@@ -62,8 +62,6 @@ function makeRouter(id = 'router-1') {
         ip: '',
         x: 0,
         y: 0,
-        vms: [],
-        components: [],
         details: {},
     }
 }
@@ -230,45 +228,29 @@ describe('removeHardware', () => {
     })
 })
 
-describe('addVM / removeVM', () => {
+describe('addVMNode', () => {
     beforeEach(() => resetStoreWithBuildId())
     afterEach(() => vi.clearAllMocks())
 
-    it('addVM does not call calculateNetwork', () => {
-        const router = makeRouter('r1')
-        useBuilderStore.getState().addHardware(router)
+    it('addVMNode does not call calculateNetwork', () => {
+        const server = { ...makeRouter('s1'), type: 'server' as const, name: 'Server' }
+        useBuilderStore.getState().addHardware(server)
 
-        useBuilderStore.getState().addVM('r1', {
-            id: 'vm-1',
-            name: 'nginx',
-            type: 'container',
-            ip: '',
-            os: '',
-            cpu_cores: 1,
-            ram_mb: 512,
-            status: 'stopped',
-        })
+        useBuilderStore.getState().addVMNode('s1', 'server', 'nginx')
 
         expect(buildApi.calculateNetwork).not.toHaveBeenCalled()
     })
 
-    it('addVM appends VM to the correct node', () => {
-        const router = makeRouter('r1')
-        useBuilderStore.getState().addHardware(router)
+    it('addVMNode creates a child node with parent_id', () => {
+        const server = { ...makeRouter('s1'), type: 'server' as const, name: 'Server' }
+        useBuilderStore.getState().addHardware(server)
 
-        useBuilderStore.getState().addVM('r1', {
-            id: 'vm-1',
-            name: 'nginx',
-            type: 'container',
-            ip: '',
-            os: '',
-            cpu_cores: 1,
-            ram_mb: 512,
-            status: 'stopped',
-        })
+        useBuilderStore.getState().addVMNode('s1', 'server', 'nginx')
 
-        const node = useBuilderStore.getState().hardwareNodes.find((n) => n.id === 'r1')
-        expect(node?.vms?.length).toBe(1)
-        expect(node?.vms?.[0].name).toBe('nginx')
+        const { hardwareNodes } = useBuilderStore.getState()
+        const childVM = hardwareNodes.find(n => n.parent_id === 's1')
+        expect(childVM).toBeDefined()
+        expect(childVM?.name).toBe('nginx')
+        expect(childVM?.type).toBe('server')
     })
 })

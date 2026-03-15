@@ -25,7 +25,7 @@ export default function RecommendationsPage() {
   const [showInsights, setShowInsights] = useState(false);
 
   // Extract all deployed service IDs from nodes
-  const serviceIds = hardwareNodes.flatMap(n => n.vms?.map(vm => vm.id) || []);
+  const serviceIds = hardwareNodes.filter(n => n.parent_id).map(n => n.id);
 
   const { data: recResponse, isLoading } = useQuery({
     queryKey: ['recommendations', serviceIds],

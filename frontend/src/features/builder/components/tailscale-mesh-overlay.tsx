@@ -25,15 +25,13 @@ import {
   Cpu,
   Globe,
   Printer,
-  Container,
-  Box,
   Cloud,
 } from 'lucide-react';
 import { useBuilderStore } from '../store/builder-store';
 import { isNetworkNode } from '../../../lib/hardware-config';
 import { cn } from '../../../lib/utils';
 import { Button } from '../../../components/ui/button';
-import type { HardwareType, HardwareNode as HWNode, VirtualMachine } from '../../../types';
+import type { HardwareType, HardwareNode as HWNode } from '../../../types';
 
 const ICON_MAP: Partial<Record<HardwareType, React.ElementType>> = {
   router: Router,
@@ -63,10 +61,11 @@ const COLOR_MAP: Partial<Record<HardwareType, string>> = {
   internet: '#14b8a6',
 };
 
-const VM_ICON: Record<string, React.ElementType> = {
-  vm: Cpu,
-  container: Container,
-  lxc: Box,
+type TsChildVm = {
+  id: string;
+  name: string;
+  tailscale_ip?: string;
+  ip?: string;
 };
 
 type TsNodeData = {
@@ -74,7 +73,7 @@ type TsNodeData = {
   type: HardwareType;
   tailscaleIp: string;
   lanIp: string;
-  vms: VirtualMachine[];
+  childVMs: TsChildVm[];
   accentColor: string;
 };
 
@@ -117,31 +116,28 @@ function TailscaleNode({ data }: NodeProps) {
             </div>
           )}
 
-          {/* VMs with Tailscale IPs */}
-          {d.vms.length > 0 && (
+          {/* Child VMs with Tailscale IPs */}
+          {d.childVMs.length > 0 && (
             <div className="pt-1.5 mt-1.5 border-t border-slate-700/50 space-y-1">
               <span className="text-[9px] uppercase tracking-wider text-slate-500 font-medium">
-                {d.vms.length} VM{d.vms.length !== 1 ? 's' : ''} / Container{d.vms.length !== 1 ? 's' : ''}
+                {d.childVMs.length} VM{d.childVMs.length !== 1 ? 's' : ''}
               </span>
-              {d.vms.map(vm => {
-                const VmIcon = VM_ICON[vm.type] ?? Box;
-                return (
-                  <div
-                    key={vm.id}
-                    className="flex items-center gap-1.5 rounded border border-slate-700/50 bg-slate-800/50 px-2 py-1 text-[10px]"
-                  >
-                    <VmIcon className="h-2.5 w-2.5 text-slate-400 shrink-0" />
-                    <span className="truncate text-slate-300 flex-1 max-w-[80px]" title={vm.name}>
-                      {vm.name}
-                    </span>
-                    {vm.tailscale_ip ? (
-                      <span className="font-mono text-blue-400 shrink-0">{vm.tailscale_ip}</span>
-                    ) : vm.ip ? (
-                      <span className="font-mono text-slate-500 shrink-0">{vm.ip}</span>
-                    ) : null}
-                  </div>
-                );
-              })}
+              {d.childVMs.map(vm => (
+                <div
+                  key={vm.id}
+                  className="flex items-center gap-1.5 rounded border border-slate-700/50 bg-slate-800/50 px-2 py-1 text-[10px]"
+                >
+                  <Cpu className="h-2.5 w-2.5 text-slate-400 shrink-0" />
+                  <span className="truncate text-slate-300 flex-1 max-w-[80px]" title={vm.name}>
+                    {vm.name}
+                  </span>
+                  {vm.tailscale_ip ? (
+                    <span className="font-mono text-blue-400 shrink-0">{vm.tailscale_ip}</span>
+                  ) : vm.ip ? (
+                    <span className="font-mono text-slate-500 shrink-0">{vm.ip}</span>
+                  ) : null}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -178,16 +174,19 @@ function TailscaleViewInner() {
   }, [setTailscaleViewActive]);
 
   const { initialNodes, tsEdges, enrolledCount, vmCount } = useMemo(() => {
-    const enrolled = hardwareNodes.filter(
-      (hn: HWNode) => isNetworkNode(hn.type) && hn.tailscale_ip,
+    const parentNodes = hardwareNodes.filter(
+      (hn: HWNode) => isNetworkNode(hn.type) && hn.tailscale_ip && !hn.parent_id,
     );
 
-    const radius = Math.max(250, enrolled.length * 80);
+    const radius = Math.max(250, parentNodes.length * 80);
     const cx = 400;
     const cy = 400;
 
-    const nodes: Node[] = enrolled.map((hn, i) => {
-      const angle = (2 * Math.PI * i) / enrolled.length - Math.PI / 2;
+    const nodes: Node[] = parentNodes.map((hn, i) => {
+      const angle = (2 * Math.PI * i) / parentNodes.length - Math.PI / 2;
+      const childVMs = hardwareNodes
+        .filter((c: HWNode) => c.parent_id === hn.id && (c.tailscale_ip || c.ip))
+        .map(c => ({ id: c.id, name: c.name, tailscale_ip: c.tailscale_ip, ip: c.ip }));
       return {
         id: hn.id,
         type: 'tailscale',
@@ -200,19 +199,19 @@ function TailscaleViewInner() {
           type: hn.type,
           tailscaleIp: hn.tailscale_ip!,
           lanIp: hn.ip || '',
-          vms: (hn.vms || []).filter(vm => vm.tailscale_ip || vm.ip),
+          childVMs,
           accentColor: COLOR_MAP[hn.type] || '#6b7280',
         } satisfies TsNodeData,
       };
     });
 
     const edges: Edge[] = [];
-    for (let i = 0; i < enrolled.length; i++) {
-      for (let j = i + 1; j < enrolled.length; j++) {
+    for (let i = 0; i < parentNodes.length; i++) {
+      for (let j = i + 1; j < parentNodes.length; j++) {
         edges.push({
-          id: `ts-${enrolled[i].id}-${enrolled[j].id}`,
-          source: enrolled[i].id,
-          target: enrolled[j].id,
+          id: `ts-${parentNodes[i].id}-${parentNodes[j].id}`,
+          source: parentNodes[i].id,
+          target: parentNodes[j].id,
           type: 'default',
           animated: true,
           style: {
@@ -225,12 +224,11 @@ function TailscaleViewInner() {
       }
     }
 
-    const vms = enrolled.reduce(
-      (sum, hn) => sum + (hn.vms?.filter(vm => vm.tailscale_ip).length || 0),
-      0,
-    );
+    const vmTsCount = hardwareNodes.filter(
+      (hn: HWNode) => hn.parent_id && hn.tailscale_ip,
+    ).length;
 
-    return { initialNodes: nodes, tsEdges: edges, enrolledCount: enrolled.length, vmCount: vms };
+    return { initialNodes: nodes, tsEdges: edges, enrolledCount: parentNodes.length, vmCount: vmTsCount };
   }, [hardwareNodes]);
 
   const [tsNodes, setTsNodes] = useState<Node[]>(initialNodes);

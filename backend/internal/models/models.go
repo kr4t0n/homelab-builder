@@ -178,12 +178,11 @@ type Node struct {
 	TailscaleIP string          `gorm:"default:''" json:"tailscale_ip"`
 	Site        string          `gorm:"default:''" json:"site"`
 	Details     json.RawMessage `gorm:"type:jsonb;default:'{}'" json:"details"` // Hardware specs
-	ParentID    *uuid.UUID      `gorm:"type:uuid" json:"parent_id,omitempty"`   // For nested components
+	ParentID    *uuid.UUID      `gorm:"type:uuid;constraint:OnDelete:CASCADE" json:"parent_id,omitempty"` // VM-host relationship
 	CreatedAt   time.Time       `json:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at"`
 
 	ServiceInstances   []ServiceInstance `gorm:"foreignKey:NodeID;constraint:OnDelete:CASCADE;" json:"service_instances,omitempty"`
-	VirtualMachines    []VirtualMachine  `gorm:"foreignKey:NodeID;constraint:OnDelete:CASCADE;" json:"virtual_machines,omitempty"`
 	InternalComponents []NodeComponent   `gorm:"foreignKey:NodeID;constraint:OnDelete:CASCADE;" json:"internal_components,omitempty"`
 }
 
@@ -213,25 +212,6 @@ type CatalogComponent struct {
 }
 
 func (CatalogComponent) TableName() string { return "catalog_components" }
-
-// VirtualMachine represents a nested VM/Container on a node
-type VirtualMachine struct {
-	ID          uuid.UUID       `gorm:"type:uuid;default:uuid_generate_v4();primaryKey" json:"id"`
-	NodeID      uuid.UUID       `gorm:"type:uuid;not null;index" json:"node_id"`
-	Name        string          `gorm:"not null" json:"name"`
-	Type        string          `gorm:"not null" json:"type"` // vm, container, lxc
-	IP          string          `gorm:"default:''" json:"ip"`
-	TailscaleIP string          `gorm:"default:''" json:"tailscale_ip"`
-	OS          string          `gorm:"default:''" json:"os"`
-	CPUCores    float64         `gorm:"default:0" json:"cpu_cores"`
-	RAMMB       int             `gorm:"default:0" json:"ram_mb"`
-	Status      string          `gorm:"default:'stopped'" json:"status"`
-	Passthrough json.RawMessage `gorm:"type:jsonb;default:'[]'" json:"passthrough"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
-}
-
-func (VirtualMachine) TableName() string { return "virtual_machines" }
 
 // Edge represents a connection between nodes
 type Edge struct {

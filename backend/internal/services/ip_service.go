@@ -100,12 +100,12 @@ var nonNetworkTypes = map[string]bool{
 // hlbIPAM for allocation, and writes the assigned IPs back.
 func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		// 1. Load nodes and edges
-		var nodes []models.Node
-		if err := tx.Preload("VirtualMachines").Where("build_id = ?", buildID).Find(&nodes).Error; err != nil {
+		// 1. Load all nodes
+		var allNodes []models.Node
+		if err := tx.Where("build_id = ?", buildID).Find(&allNodes).Error; err != nil {
 			return err
 		}
-		if len(nodes) == 0 {
+		if len(allNodes) == 0 {
 			return nil
 		}
 
@@ -114,7 +114,18 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			return err
 		}
 
-		// Helper to extract numeric port from handle string (e.g. "eth0" -> 0, "eth10" -> 10)
+		// Separate parent nodes and child nodes (VMs have parent_id set)
+		var nodes []models.Node
+		childByParent := make(map[string][]models.Node)
+		for _, n := range allNodes {
+			if n.ParentID != nil {
+				pid := n.ParentID.String()
+				childByParent[pid] = append(childByParent[pid], n)
+			} else {
+				nodes = append(nodes, n)
+			}
+		}
+
 		extractPort := func(h string) int {
 			var numStr string
 			for _, c := range h {
@@ -129,10 +140,8 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			return val
 		}
 
-		// 2. Build adjacency from edges (as connection lists per node)
+		// 2. Build adjacency from edges (only parent nodes participate)
 		adj := make(map[string][]string, len(nodes))
-
-		// Map: nodeID -> neighborID -> port index
 		edgePorts := make(map[string]map[string]int, len(nodes))
 
 		for _, e := range edges {
@@ -152,9 +161,6 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			edgePorts[tgt][src] = extractPort(e.TargetHandle)
 		}
 
-		// Sort adj arrays by port index. Note that React Flow edges might be drawn:
-		// Switch(ethX) -> Server(target-0) OR Server(eth0) -> Switch(target-0).
-		// We want to sort primarily by the port number ON the current node.
 		for nodeID, neighbors := range adj {
 			sort.Slice(neighbors, func(i, j int) bool {
 				p1 := edgePorts[nodeID][neighbors[i]]
@@ -163,7 +169,7 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			})
 		}
 
-		// 3. Build hlbIPAM request
+		// 3. Build hlbIPAM request — convert child nodes into ipamVM structs
 		req := ipamRequest{
 			Routers: make([]ipamRouter, 0),
 			Nodes:   make([]ipamNode, 0, len(nodes)),
@@ -174,14 +180,13 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			if n.Type == "router" {
 				var details struct {
 					DHCPEnabled bool   `json:"dhcp_enabled"`
-					DHCPLocked  bool   `json:"dhcp_locked"`
 					SubnetMask  string `json:"subnet_mask"`
 				}
 				_ = json.Unmarshal(n.Details, &details)
 
 				subnet := ""
 				if n.IP != "" && details.SubnetMask != "" {
-					subnet = n.IP + "/" + details.SubnetMask // IPAM can parse IP and Mask
+					subnet = n.IP + "/" + details.SubnetMask
 				}
 
 				req.Routers = append(req.Routers, ipamRouter{
@@ -190,24 +195,19 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 					Subnet:      subnet,
 					DHCPEnabled: details.DHCPEnabled,
 				})
-			} else {
-				var details struct {
-					DHCPLocked bool `json:"dhcp_locked"`
-				}
-				_ = json.Unmarshal(n.Details, &details)
 			}
 
-			vms := make([]ipamVM, 0, len(n.VirtualMachines))
-			for _, vm := range n.VirtualMachines {
+			// Convert child nodes to ipamVM format
+			children := childByParent[nid]
+			vms := make([]ipamVM, 0, len(children))
+			for _, child := range children {
 				vms = append(vms, ipamVM{
-					ID:         vm.ID.String(),
-					ExistingIP: vm.IP,
+					ID:         child.ID.String(),
+					ExistingIP: child.IP,
 				})
 			}
 
 			existingIP := ""
-
-			// Extract DHCPLocked from node details
 			var details struct {
 				DHCPLocked bool `json:"dhcp_locked"`
 			}
@@ -216,9 +216,9 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			if nonNetworkTypes[n.Type] {
 				// Don't send existing IP for non-network types
 			} else if n.Type == "router" {
-				existingIP = n.IP // preserve router IPs as existing
+				existingIP = n.IP
 			} else if details.DHCPLocked {
-				existingIP = n.IP // preserve locked static IPs
+				existingIP = n.IP
 			}
 
 			req.Nodes = append(req.Nodes, ipamNode{
@@ -236,7 +236,7 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			return fmt.Errorf("hlbIPAM call failed: %w", err)
 		}
 
-		// 5. Build a lookup from hlbIPAM results (LAN IPs only)
+		// 5. Build a lookup from hlbIPAM results
 		ipByID := make(map[string]string, len(result.Nodes))
 		vmIPByID := make(map[string]string)
 		for _, nr := range result.Nodes {
@@ -257,7 +257,7 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			}
 		}
 
-		// 6. Persist assigned LAN IPs (Tailscale IPs are manual, never overwritten)
+		// 6. Persist assigned LAN IPs on parent nodes
 		for i := range nodes {
 			nid := nodes[i].ID.String()
 			if ip, ok := ipByID[nid]; ok {
@@ -266,19 +266,19 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			if ip, ok := routerIPByID[nid]; ok {
 				nodes[i].IP = ip
 			}
-
-			for j := range nodes[i].VirtualMachines {
-				vmid := nodes[i].VirtualMachines[j].ID.String()
-				if ip, ok := vmIPByID[vmid]; ok {
-					nodes[i].VirtualMachines[j].IP = ip
-				}
-			}
-
 			if err := tx.Save(&nodes[i]).Error; err != nil {
 				return err
 			}
-			for j := range nodes[i].VirtualMachines {
-				if err := tx.Save(&nodes[i].VirtualMachines[j]).Error; err != nil {
+		}
+
+		// 7. Persist assigned LAN IPs on child nodes (VMs)
+		for _, children := range childByParent {
+			for i := range children {
+				cid := children[i].ID.String()
+				if ip, ok := vmIPByID[cid]; ok {
+					children[i].IP = ip
+				}
+				if err := tx.Save(&children[i]).Error; err != nil {
 					return err
 				}
 			}
@@ -320,14 +320,26 @@ func (s *IPService) callIPAM(req ipamRequest) (*ipamResponse, error) {
 // ValidateNetwork sends the current topology to the hlbIPAM validate endpoint
 // and returns the raw validation response directly to the caller.
 func (s *IPService) ValidateNetwork(buildID uuid.UUID) (json.RawMessage, error) {
-	var nodes []models.Node
-	if err := s.db.Preload("VirtualMachines").Where("build_id = ?", buildID).Find(&nodes).Error; err != nil {
+	var allNodes []models.Node
+	if err := s.db.Where("build_id = ?", buildID).Find(&allNodes).Error; err != nil {
 		return nil, err
 	}
 
 	var edges []models.Edge
 	if err := s.db.Where("build_id = ?", buildID).Find(&edges).Error; err != nil {
 		return nil, err
+	}
+
+	// Separate parent nodes and child nodes
+	var nodes []models.Node
+	childByParent := make(map[string][]models.Node)
+	for _, n := range allNodes {
+		if n.ParentID != nil {
+			pid := n.ParentID.String()
+			childByParent[pid] = append(childByParent[pid], n)
+		} else {
+			nodes = append(nodes, n)
+		}
 	}
 
 	adj := make(map[string][]string, len(nodes))
@@ -358,11 +370,12 @@ func (s *IPService) ValidateNetwork(buildID uuid.UUID) (json.RawMessage, error) 
 			})
 		}
 
-		vms := make([]ipamVM, 0, len(n.VirtualMachines))
-		for _, vm := range n.VirtualMachines {
+		children := childByParent[nid]
+		vms := make([]ipamVM, 0, len(children))
+		for _, child := range children {
 			vms = append(vms, ipamVM{
-				ID:         vm.ID.String(),
-				ExistingIP: vm.IP,
+				ID:         child.ID.String(),
+				ExistingIP: child.IP,
 			})
 		}
 

@@ -202,22 +202,20 @@ export default function ConfigGeneratorPage() {
     const services: any[] = []; // Using any to avoid strict Service type construction for minimal mock
 
     hardwareNodes.forEach(node => {
-      node.vms?.forEach(vm => {
-        if (vm.type === 'container' || vm.type === 'vm') {
-          services.push({
-            id: vm.id, // Use VM ID
-            name: vm.name,
-            description: 'Deployed in Visual Builder',
-            category: 'other',
-            icon: 'Package',
-            official_website: '',
-            docker_support: true,
-            is_active: true,
-            requirements: null,
-            created_at: new Date().toISOString(),
-          });
-        }
-      });
+      if (node.parent_id) {
+        services.push({
+          id: node.id,
+          name: node.name,
+          description: 'Deployed in Visual Builder',
+          category: 'other',
+          icon: 'Package',
+          official_website: '',
+          docker_support: true,
+          is_active: true,
+          requirements: null,
+          created_at: new Date().toISOString(),
+        });
+      }
     });
 
     return services;

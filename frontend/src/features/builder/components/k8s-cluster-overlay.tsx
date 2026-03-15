@@ -25,8 +25,6 @@ import {
   Cpu,
   Globe,
   Printer,
-  Container,
-  Box,
   Cloud,
   Crown,
   Cog,
@@ -66,20 +64,11 @@ type K8sNodeData = {
   clusterColor: string;
   clusterName: string;
   isVm: boolean;
-  vmType?: string;
-};
-
-const VM_ICON: Record<string, React.ElementType> = {
-  vm: Cpu,
-  container: Container,
-  lxc: Box,
 };
 
 function K8sNode({ data }: NodeProps) {
   const d = data as unknown as K8sNodeData;
-  const Icon = d.isVm
-    ? (VM_ICON[d.vmType || 'vm'] ?? Box)
-    : (ICON_MAP[d.type] ?? Server);
+  const Icon = ICON_MAP[d.type] ?? Server;
   const isMaster = d.role === 'master';
 
   return (
@@ -202,25 +191,21 @@ function K8sOverlayInner() {
       const pushMember = (member: K8sMember, x: number, y: number) => {
         const hw = hardwareNodes.find(n => n.id === member.node_id);
         if (!hw) return null;
-        const isVm = !!member.vm_id;
-        const vm = isVm ? hw.vms?.find(v => v.id === member.vm_id) : null;
-        const nodeId = member.vm_id ? `${member.node_id}-${member.vm_id}` : member.node_id;
+        const isVm = !!hw.parent_id;
+        const nodeId = member.node_id;
         nodes.push({
           id: nodeId,
           type: 'k8s',
           position: { x, y },
           data: {
-            label: isVm ? (vm?.name || 'VM') : hw.name,
+            label: hw.name,
             type: hw.type,
             role: member.role,
-            ip: isVm ? (vm?.ip || '') : (hw.ip || ''),
-            tailscaleIp: tailscaleEnabled
-              ? (isVm ? (vm?.tailscale_ip || '') : (hw.tailscale_ip || ''))
-              : undefined,
+            ip: hw.ip || '',
+            tailscaleIp: tailscaleEnabled ? (hw.tailscale_ip || '') : undefined,
             clusterColor: cluster.color,
             clusterName: cluster.name,
             isVm,
-            vmType: vm?.type,
           } satisfies K8sNodeData,
         });
         return nodeId;

@@ -15,14 +15,14 @@ import {
   ChevronDown,
   Shield,
   Network,
+  Plus,
+  Server,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../../../lib/utils';
 import type { HardwareType } from '../../../types';
-import { VMManager } from './vm-manager';
 import { InternalComponentManager } from './internal-component-manager';
 import { canNodeHostVMs, nodeHasCPU, nodeHasDynamicPorts, nodeHasRAM, nodeHasStorage, isNetworkNode, isComputeNode } from '../../../lib/hardware-config';
-import { getVmResourceUsage } from '../lib/resource-usage';
 import { getNodePortCount, parsePortCount } from '../lib/port-count';
 
 import type { K8sRole } from '../../../types';
@@ -33,7 +33,7 @@ const IP_REGEX =
 function K8sEnrollmentSection({ nodeId }: { nodeId: string }) {
   const { k8sClusters, k8sMembers, enrollInK8s, unenrollFromK8s } = useBuilderStore();
 
-  const membership = k8sMembers.find(m => m.node_id === nodeId && !m.vm_id);
+  const membership = k8sMembers.find(m => m.node_id === nodeId);
   const cluster = membership ? k8sClusters.find(c => c.id === membership.cluster_id) : null;
 
   if (k8sClusters.length === 0) return null;
@@ -52,9 +52,9 @@ function K8sEnrollmentSection({ nodeId }: { nodeId: string }) {
           onChange={e => {
             const val = e.target.value;
             if (!val) {
-              unenrollFromK8s(nodeId, null);
+              unenrollFromK8s(nodeId);
             } else {
-              enrollInK8s(nodeId, null, val, membership?.role || 'worker');
+              enrollInK8s(nodeId, val, membership?.role || 'worker');
             }
           }}
         >
@@ -68,7 +68,7 @@ function K8sEnrollmentSection({ nodeId }: { nodeId: string }) {
           <select
             className="w-24 h-7 text-xs rounded-md border bg-background px-2"
             value={membership.role}
-            onChange={e => enrollInK8s(nodeId, null, membership.cluster_id, e.target.value as K8sRole)}
+            onChange={e => enrollInK8s(nodeId, membership.cluster_id, e.target.value as K8sRole)}
           >
             <option value="master">Master</option>
             <option value="worker">Worker</option>
@@ -102,6 +102,7 @@ export function NodePropertiesPanel() {
     updateHardware,
     removeHardware,
     autoAssignIP,
+    addVMNode,
   } = useBuilderStore();
 
   const [name, setName] = useState('');
@@ -136,7 +137,6 @@ export function NodePropertiesPanel() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Sync from store to local state (only if changed to avoid loops)
   useEffect(() => {
     if (selectedNode) {
       if (name !== selectedNode.name) setName(selectedNode.name);
@@ -155,7 +155,6 @@ export function NodePropertiesPanel() {
       if (cpu !== (selectedNode.details?.cpu?.toString() || ''))
         setCpu(selectedNode.details?.cpu?.toString() || '');
 
-      // Re-hydrate RAM with TB format extraction
       if (selectedNode.details?.ram) {
         const r = Number(selectedNode.details.ram);
         if (r >= 1000 && r % 1000 === 0) {
@@ -170,7 +169,6 @@ export function NodePropertiesPanel() {
         setRamUnit('GB');
       }
 
-      // Re-hydrate Storage with TB format extraction
       if (selectedNode.details?.storage) {
         const s = Number(selectedNode.details.storage);
         if (s >= 1000 && s % 1000 === 0) {
@@ -194,14 +192,12 @@ export function NodePropertiesPanel() {
 
       setErrors({});
     }
-  }, [selectedNode]); // Rely on store reference changes
+  }, [selectedNode]);
 
-  // Auto-save to store (Debounced)
   useEffect(() => {
     if (!selectedNode) return;
 
     const timer = setTimeout(() => {
-      // Validate and Save
       if (validate()) {
         const parseNum = (val: string) => {
           if (!val || val.trim() === '') return undefined;
@@ -231,7 +227,7 @@ export function NodePropertiesPanel() {
           },
         });
       }
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [
@@ -254,6 +250,9 @@ export function NodePropertiesPanel() {
 
   if (!selectedNode) return null;
 
+  const isVM = !!selectedNode.parent_id;
+  const hostNode = isVM ? hardwareNodes.find(n => n.id === selectedNode.parent_id) : null;
+
   const handleDelete = () => {
     removeHardware(selectedNode.id);
     selectNode(null);
@@ -274,34 +273,30 @@ export function NodePropertiesPanel() {
     }
   };
 
+  const handleAddVM = () => {
+    addVMNode(selectedNode.id, 'server', 'New VM');
+  };
+
   const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
   const isRouter = selectedNode.type === 'router';
-  const supportsVMs = canNodeHostVMs(selectedNode.type);
+  const supportsVMs = canNodeHostVMs(selectedNode.type) && !isVM;
   const isNetworked = isNetworkNode(selectedNode.type);
 
-  // Resource limit calculations
-  const { cpu: usedCpu, ramMb: usedRam } = getVmResourceUsage(selectedNode.vms || []);
+  // Resource limit calculations for host nodes
+  const allHardwareNodes = useBuilderStore(s => s.hardwareNodes);
+  const childVMs = allHardwareNodes.filter(n => n.parent_id === selectedNode.id);
+  const usedCpu = childVMs.reduce((acc, vm) => acc + (Number(vm.details?.cpu) || 0), 0);
+  const usedRam = childVMs.reduce((acc, vm) => {
+    const r = Number(vm.details?.ram) || 0;
+    return acc + (r < 1000 ? r * 1024 : r);
+  }, 0);
 
   const totalCpu = Number(selectedNode.details?.cpu) || 0;
   const totalRamGB = Number(selectedNode.details?.ram) || 0;
   const totalRamMB = totalRamGB < 1000 ? totalRamGB * 1024 : totalRamGB;
 
-  // Sum storage from base details + internal disk/NAS components
-  let totalStorageGB = Number(selectedNode.details?.storage) || 0;
-  let totalGpuRamMB = 0;
-  (selectedNode.internal_components || []).forEach(comp => {
-    if (!comp.details) return;
-    if (nodeHasStorage(comp.type as HardwareType)) {
-      totalStorageGB += Number(comp.details.storage) || 0;
-    }
-    if (comp.type === 'gpu') {
-      const vram = Number(comp.details.ram) || 0;
-      totalGpuRamMB += vram < 1000 ? vram * 1024 : vram;
-    }
-  });
-
-  const cpuWarning = totalCpu > 0 && usedCpu > totalCpu;
-  const ramWarning = totalRamMB > 0 && usedRam > totalRamMB;
+  const cpuWarning = !isVM && totalCpu > 0 && usedCpu > totalCpu;
+  const ramWarning = !isVM && totalRamMB > 0 && usedRam > totalRamMB;
   const hasWarning = cpuWarning || ramWarning;
 
   return (
@@ -312,6 +307,11 @@ export function NodePropertiesPanel() {
           <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider">
             {selectedNode.type}
           </span>
+          {isVM && (
+            <span className="text-[10px] bg-violet-500/15 text-violet-400 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              VM
+            </span>
+          )}
         </CardTitle>
         <div className="flex items-center gap-1">
           <Button
@@ -336,6 +336,42 @@ export function NodePropertiesPanel() {
       </CardHeader>
 
       <CardContent className="space-y-4 pt-4 overflow-y-auto flex-1">
+        {/* Host display for VM nodes */}
+        {isVM && hostNode && (
+          <div className="flex items-center gap-2 p-2 bg-violet-500/5 border border-violet-500/20 rounded-md">
+            <Server className="h-4 w-4 text-violet-400 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-violet-400 uppercase tracking-wider font-medium">Host Machine</p>
+              <p
+                className="text-xs font-semibold truncate cursor-pointer hover:underline"
+                onClick={() => selectNode(hostNode.id)}
+                title={`Click to select ${hostNode.name}`}
+              >
+                {hostNode.name}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* VM Type selector — shown before name for VMs */}
+        {isVM && (
+          <div className="space-y-2">
+            <Label htmlFor="vm-type">VM Type</Label>
+            <select
+              id="vm-type"
+              className="w-full h-9 text-sm rounded-md border bg-background px-3"
+              value={selectedNode.type}
+              onChange={e => updateHardware(selectedNode.id, { type: e.target.value as HardwareType })}
+            >
+              <option value="server">Server</option>
+              <option value="nas">NAS</option>
+              <option value="pc">PC</option>
+              <option value="minipc">Mini PC</option>
+              <option value="sbc">SBC</option>
+            </select>
+          </div>
+        )}
+
         {/* Name */}
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
@@ -366,7 +402,6 @@ export function NodePropertiesPanel() {
             >
               <div className="overflow-hidden">
                 <div className="pb-3 space-y-4">
-                  {/* IP Address */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
                       <Label htmlFor="ip">IP Address</Label>
@@ -418,7 +453,6 @@ export function NodePropertiesPanel() {
                     </p>
                   </div>
 
-                  {/* Tailscale IP */}
                   {tailscaleEnabled && isNetworked && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
@@ -449,7 +483,6 @@ export function NodePropertiesPanel() {
                     </div>
                   )}
 
-                  {/* Router-specific: Subnet Mask + Gateway */}
                   {isRouter && (
                     <>
                       <div className="space-y-2">
@@ -498,7 +531,7 @@ export function NodePropertiesPanel() {
                         />
                       </div>
                       <p className="text-[10px] text-muted-foreground bg-primary/5 rounded-md px-2 py-1.5 mt-2">
-                        💡 Set this router's IP to enable auto-assignment for other nodes.
+                        Set this router's IP to enable auto-assignment for other nodes.
                       </p>
                     </>
                   )}
@@ -508,7 +541,7 @@ export function NodePropertiesPanel() {
           </div>
         )}
 
-        {/* Site URL — always visible for networked nodes */}
+        {/* Site URL */}
         {isNetworked && (
           <div className="space-y-2">
             <Label htmlFor="site">Site</Label>
@@ -521,9 +554,9 @@ export function NodePropertiesPanel() {
           </div>
         )}
 
-        {/* Hardware Specs (Model, CPU, RAM, Storage, Ports) */}
+        {/* Hardware Specs */}
         <div className="space-y-3 pt-2 border-t">
-          {nodeHasDynamicPorts(selectedNode.type) && (
+          {!isVM && nodeHasDynamicPorts(selectedNode.type) && (
             <div className="space-y-1">
               <Label htmlFor="ports" className="text-xs text-muted-foreground">
                 Number of Ports
@@ -628,13 +661,13 @@ export function NodePropertiesPanel() {
           )}
         </div>
 
-        {/* Component Manager (GPUs, Disks, etc) */}
-        <InternalComponentManager nodeId={selectedNode.id} />
+        {/* Component Manager (GPUs, Disks, etc) — only for non-VM nodes */}
+        {!isVM && <InternalComponentManager nodeId={selectedNode.id} />}
 
         {/* Kubernetes enrollment */}
         {isComputeNode(selectedNode.type) && <K8sEnrollmentSection nodeId={selectedNode.id} />}
 
-        {/* VM Manager (servers, PCs, NAS) */}
+        {/* Add VM button for host nodes */}
         {supportsVMs && (
           <div className="border-t pt-4">
             {hasWarning && (
@@ -651,7 +684,37 @@ export function NodePropertiesPanel() {
                 </div>
               </div>
             )}
-            <VMManager nodeId={selectedNode.id} />
+
+            {childVMs.length > 0 && (
+              <div className="mb-3 space-y-1">
+                <p className="text-[10px] uppercase tracking-wider text-violet-400 font-medium">
+                  Virtual Machines ({childVMs.length})
+                </p>
+                {childVMs.map(vm => (
+                  <div
+                    key={vm.id}
+                    className="flex items-center gap-2 p-2 rounded border border-violet-500/20 bg-violet-500/5 cursor-pointer hover:bg-violet-500/10 transition-colors"
+                    onClick={() => selectNode(vm.id)}
+                  >
+                    <Server className="h-3 w-3 text-violet-400 shrink-0" />
+                    <span className="text-xs font-medium truncate flex-1">{vm.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      {vm.ip || 'no IP'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs border-dashed border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
+              onClick={handleAddVM}
+            >
+              <Plus className="h-3 w-3 mr-1.5" />
+              Add Virtual Machine
+            </Button>
           </div>
         )}
       </CardContent>

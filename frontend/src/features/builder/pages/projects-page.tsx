@@ -63,10 +63,6 @@ const normalizeNodesForSync = (nodes: any[] = []) =>
   nodes.map(node => ({
     ...node,
     details: parseDetailsObject(node.details),
-    vms: (node.vms || node.virtual_machines || []).map((vm: any) => ({
-      ...vm,
-      passthrough: vm.passthrough || [],
-    })),
     internal_components: (node.internal_components || []).map((component: any) => ({
       ...component,
       details: parseDetailsObject(component.details),
@@ -88,12 +84,6 @@ const remapImportIds = (data: any) => {
 
   const nodes = (data.nodes || []).map((node: any) => {
     const newNodeId = tempId(node.id);
-    const vms = (node.vms || node.virtual_machines || []).map((vm: any) => ({
-      ...vm,
-      id: tempId(vm.id),
-      node_id: undefined,
-      passthrough: (vm.passthrough || []).map((p: string) => tempId(p)),
-    }));
     const components = (node.internal_components || []).map((c: any) => ({
       ...c,
       id: tempId(c.id),
@@ -104,9 +94,8 @@ const remapImportIds = (data: any) => {
       ...node,
       id: newNodeId,
       build_id: undefined,
+      parent_id: node.parent_id ? tempId(node.parent_id) : undefined,
       details: parseDetailsObject(node.details),
-      vms,
-      virtual_machines: undefined,
       internal_components: components,
     };
   });
@@ -125,7 +114,6 @@ const remapImportIds = (data: any) => {
     settings.k8s_members = settings.k8s_members.map((m: any) => ({
       ...m,
       node_id: tempId(m.node_id),
-      vm_id: m.vm_id ? tempId(m.vm_id) : undefined,
     }));
   }
 

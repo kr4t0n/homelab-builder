@@ -27,7 +27,7 @@ func main() {
 
 	// Force migration of other related tables just in case
 	log.Println("Migrating related tables...")
-	if err := db.AutoMigrate(&models.Edge{}, &models.VirtualMachine{}, &models.ServiceInstance{}); err != nil {
+	if err := db.AutoMigrate(&models.Edge{}, &models.ServiceInstance{}); err != nil {
 		log.Fatalf("Failed to migrate related tables: %v", err)
 	}
 	log.Println("All tables migrated.")

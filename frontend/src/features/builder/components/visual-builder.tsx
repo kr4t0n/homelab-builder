@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ReactFlow,
@@ -12,7 +12,6 @@ import {
   ConnectionMode,
 } from '@xyflow/react';
 import { toast } from 'sonner';
-import { v4 as uuidv4 } from 'uuid';
 import { toJpeg } from 'html-to-image';
 import '@xyflow/react/dist/style.css';
 import Joyride, { type CallBackProps, STATUS, type Step } from 'react-joyride';
@@ -46,6 +45,7 @@ import {
 } from '../../../components/ui/dropdown-menu';
 
 import { CustomEdge } from './custom-edge';
+import { VirtualEdge } from './virtual-edge';
 import { TailscaleView, TailscaleStatusBadge } from './tailscale-mesh-overlay';
 import { K8sClusterManager } from './k8s-cluster-manager';
 import { K8sClusterOverlay, K8sStatusBadge } from './k8s-cluster-overlay';
@@ -56,6 +56,7 @@ const nodeTypes: NodeTypes = {
 
 const edgeTypes = {
   custom: CustomEdge,
+  virtual: VirtualEdge,
 };
 
 type Shortcut = { combination: string; name: string };
@@ -160,7 +161,7 @@ function Flow() {
     selectNode,
     selectedNodeId,
     addInternalComponent,
-    addVM,
+    addVMNode,
     reassignAllIPs,
     loadBuild,
     getBuildData,
@@ -182,6 +183,33 @@ function Flow() {
   } = useBuilderStore();
 
   const [k8sManagerOpen, setK8sManagerOpen] = useState(false);
+
+  const allEdges = useMemo(() => {
+    const virtual = hardwareNodes
+      .filter(n => n.parent_id)
+      .map(n => ({
+        id: `virtual-${n.id}`,
+        source: n.parent_id!,
+        sourceHandle: 'eth0',
+        target: n.id,
+        targetHandle: 'target-0',
+        type: 'virtual' as const,
+        data: {},
+        selectable: false,
+        deletable: false,
+      }));
+    return [...edges, ...virtual];
+  }, [edges, hardwareNodes]);
+
+  const handleEdgesChange = useCallback<typeof onEdgesChange>(
+    (changes) => {
+      const filtered = changes.filter(
+        c => !('id' in c && typeof c.id === 'string' && c.id.startsWith('virtual-')),
+      );
+      if (filtered.length > 0) onEdgesChange(filtered);
+    },
+    [onEdgesChange],
+  );
 
   const { screenToFlowPosition, getIntersectingNodes } = useReactFlow();
 
@@ -465,17 +493,7 @@ function Flow() {
 
       if (isServiceDrag) {
         if (targetNode && targetNode.type === 'hardware') {
-          const cpuVal = data.details?.cpu ? Number(data.details.cpu) : undefined;
-          const ramVal = data.details?.ram ? Number(data.details.ram) : undefined;
-
-          addVM(targetNode.id, {
-            id: uuidv4(),
-            name: data.name,
-            type: 'container',
-            status: 'running',
-            cpu_cores: cpuVal || undefined,
-            ram_mb: ramVal || undefined,
-          });
+          addVMNode(targetNode.id, 'server', data.name);
         } else {
           toast.error('Please drag services directly onto a hardware node.');
         }
@@ -510,11 +528,10 @@ function Flow() {
         y: position.y,
         details: data.details || {},
         internal_components: [],
-        vms: [],
       };
       addHardware(newNode);
     },
-    [screenToFlowPosition, getIntersectingNodes, addHardware, addInternalComponent, addVM],
+    [screenToFlowPosition, getIntersectingNodes, addHardware, addInternalComponent, addVMNode],
   );
 
   const isValidConnection = useCallback(
@@ -528,6 +545,12 @@ function Flow() {
       const sourceNode = currentNodes.find(n => n.id === connection.source);
       const targetNode = currentNodes.find(n => n.id === connection.target);
       if (!sourceNode || !targetNode) return false;
+
+      // VM nodes (with parent_id) don't participate in the network graph
+      if (sourceNode.parent_id || targetNode.parent_id) {
+        toast.error('VMs cannot be directly connected. They share their host\'s network.');
+        return false;
+      }
 
       const isUPS = sourceNode.type === 'ups' || targetNode.type === 'ups';
 
@@ -631,9 +654,9 @@ function Flow() {
 
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={allEdges}
           onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           isValidConnection={isValidConnection}
           nodeTypes={nodeTypes}

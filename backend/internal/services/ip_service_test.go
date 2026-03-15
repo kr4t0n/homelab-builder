@@ -240,14 +240,15 @@ func TestCalculateNetwork_VMsGetSubnetIPs(t *testing.T) {
 	router := createNode(t, tx, buildID, "router", "Router", "192.168.1.1")
 	server := createNode(t, tx, buildID, "server", "Server", "")
 
-	vm := models.VirtualMachine{
-		NodeID: server.ID,
-		Name:   "nginx",
-		Type:   "container",
-		Status: "stopped",
+	// VMs are now regular nodes with parent_id
+	vmNode := models.Node{
+		BuildID:  buildID,
+		Type:     "server",
+		Name:     "nginx",
+		ParentID: &server.ID,
 	}
-	if err := tx.Create(&vm).Error; err != nil {
-		t.Fatalf("create vm: %v", err)
+	if err := tx.Create(&vmNode).Error; err != nil {
+		t.Fatalf("create vm node: %v", err)
 	}
 
 	connectNodes(t, tx, buildID, router.ID, server.ID)
@@ -261,9 +262,9 @@ func TestCalculateNetwork_VMsGetSubnetIPs(t *testing.T) {
 		t.Fatal("server should have an IP")
 	}
 
-	var updatedVM models.VirtualMachine
-	if err := tx.First(&updatedVM, "id = ?", vm.ID).Error; err != nil {
-		t.Fatalf("reload vm: %v", err)
+	var updatedVM models.Node
+	if err := tx.First(&updatedVM, "id = ?", vmNode.ID).Error; err != nil {
+		t.Fatalf("reload vm node: %v", err)
 	}
 	if !hasPrefix(updatedVM.IP, "192.168.1.") {
 		t.Errorf("VM should be in 192.168.1.x, got %q (server has %q)", updatedVM.IP, serverIP)

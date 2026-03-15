@@ -47,7 +47,7 @@ export function BuilderPanel() {
       return false;
     }
   })();
-  const totalVMs = hardwareNodes.reduce((acc, node) => acc + (node.vms?.length || 0), 0);
+  const totalVMs = hardwareNodes.filter(n => n.parent_id).length;
 
   return (
     <div

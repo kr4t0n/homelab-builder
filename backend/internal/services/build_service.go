@@ -129,10 +129,11 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 	if err := tx.Where("build_id = ?", buildID).Delete(&models.ServiceInstance{}).Error; err != nil {
 		return err
 	}
-	if err := tx.Where("node_id IN (?)", tx.Model(&models.Node{}).Select("id").Where("build_id = ?", buildID)).Delete(&models.VirtualMachine{}).Error; err != nil {
+	if err := tx.Where("node_id IN (?)", tx.Model(&models.Node{}).Select("id").Where("build_id = ?", buildID)).Delete(&models.NodeComponent{}).Error; err != nil {
 		return err
 	}
-	if err := tx.Where("node_id IN (?)", tx.Model(&models.Node{}).Select("id").Where("build_id = ?", buildID)).Delete(&models.NodeComponent{}).Error; err != nil {
+	// Delete child nodes first (those with parent_id), then parent nodes
+	if err := tx.Where("build_id = ? AND parent_id IS NOT NULL", buildID).Delete(&models.Node{}).Error; err != nil {
 		return err
 	}
 	if err := tx.Where("build_id = ?", buildID).Delete(&models.Node{}).Error; err != nil {
@@ -140,114 +141,34 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 	}
 
 	idMap := make(map[string]uuid.UUID)
-	vmIdMap := make(map[string]uuid.UUID)
 	compIdMap := make(map[string]uuid.UUID)
 
-	// 2. Insert Nodes
+	// Separate parent nodes and child nodes (those with parent_id)
+	var parentNodes []NodeDTO
+	var childNodes []NodeDTO
 	for _, n := range input.Nodes {
-		var uid uuid.UUID
-		if parsed, err := uuid.Parse(n.ID); err == nil {
-			uid = parsed
-		} else {
-			uid = uuid.New()
-		}
-		idMap[n.ID] = uid
-
-		if n.Details == nil {
-			n.Details = make(map[string]any)
-		}
-		if n.SubnetMask != "" {
-			n.Details["subnet_mask"] = n.SubnetMask
-		}
-		if n.Gateway != "" {
-			n.Details["gateway"] = n.Gateway
-		}
-		detailsJSON, _ := json.Marshal(n.Details)
-
-		node := models.Node{
-			ID:          uid,
-			BuildID:     buildID,
-			Type:        n.Type,
-			Name:        n.Name,
-			X:           n.X,
-			Y:           n.Y,
-			IP:          n.IP,
-			TailscaleIP: n.TailscaleIP,
-			Site:        n.Site,
-			Details:     detailsJSON,
-		}
 		if n.ParentID != nil && *n.ParentID != "" {
-			if parsed, err := uuid.Parse(*n.ParentID); err == nil {
-				node.ParentID = &parsed
-			}
-		}
-
-		if err := tx.Create(&node).Error; err != nil {
-			return err
-		}
-
-		// 2.1 Internal Components (before VMs so passthrough refs can be remapped)
-		for _, comp := range n.InternalComponents {
-			compUID := uuid.New()
-			if parsed, err := uuid.Parse(comp.ID); err == nil {
-				compUID = parsed
-			}
-			compIdMap[comp.ID] = compUID
-			compDetailsJSON, _ := json.Marshal(comp.Details)
-			cModel := models.NodeComponent{
-				ID:      compUID,
-				NodeID:  uid,
-				Type:    comp.Type,
-				Name:    comp.Name,
-				Details: compDetailsJSON,
-			}
-			if err := tx.Create(&cModel).Error; err != nil {
-				return err
-			}
-		}
-
-		// 2.2 VMs (passthrough refs remapped via compIdMap)
-		for _, vm := range n.VMs {
-			vmUID := uuid.New()
-			if parsed, err := uuid.Parse(vm.ID); err == nil {
-				vmUID = parsed
-			}
-			vmIdMap[vm.ID] = vmUID
-
-			remappedPT := make([]string, 0, len(vm.Passthrough))
-			for _, ptRef := range vm.Passthrough {
-				if newID, ok := compIdMap[ptRef]; ok {
-					remappedPT = append(remappedPT, newID.String())
-				} else {
-					remappedPT = append(remappedPT, ptRef)
-				}
-			}
-
-			ptJSON, _ := json.Marshal(remappedPT)
-			if ptJSON == nil {
-				ptJSON = []byte("[]")
-			}
-
-			vModel := models.VirtualMachine{
-				ID:          vmUID,
-				NodeID:      uid,
-				Name:        vm.Name,
-				Type:        vm.Type,
-				IP:          vm.IP,
-				TailscaleIP: vm.TailscaleIP,
-				OS:          vm.OS,
-				CPUCores:    vm.CPUCores,
-				RAMMB:       vm.RAMMB,
-				Status:      vm.Status,
-				Passthrough: ptJSON,
-			}
-			if err := tx.Create(&vModel).Error; err != nil {
-				return err
-			}
+			childNodes = append(childNodes, n)
+		} else {
+			parentNodes = append(parentNodes, n)
 		}
 	}
 
-	// 3. Insert Edges
+	// 2. Insert parent nodes first
+	for _, n := range parentNodes {
+		if err := s.insertNode(tx, buildID, n, idMap, compIdMap); err != nil {
+			return err
+		}
+	}
+
+	// 3. Insert child nodes (VMs) — parent IDs are resolved from idMap
+	for _, n := range childNodes {
+		if err := s.insertNode(tx, buildID, n, idMap, compIdMap); err != nil {
+			return err
+		}
+	}
+
+	// 4. Insert Edges
 	for _, le := range input.Edges {
 		sourceUUID, ok1 := idMap[le.Source]
 		targetUUID, ok2 := idMap[le.Target]
@@ -269,7 +190,7 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 		}
 	}
 
-	// 4. Insert Service Instances
+	// 5. Insert Service Instances
 	for _, ls := range input.Services {
 		catalogID, err := uuid.Parse(ls.ID)
 		if err == nil {
@@ -285,12 +206,9 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 		}
 	}
 
-	// 5. Remap k8s_members node_id/vm_id in settings to match newly created UUIDs
-	remap := make(map[string]string, len(idMap)+len(vmIdMap))
+	// 6. Remap k8s_members node_id in settings to match newly created UUIDs
+	remap := make(map[string]string, len(idMap))
 	for oldID, newUUID := range idMap {
-		remap[oldID] = newUUID.String()
-	}
-	for oldID, newUUID := range vmIdMap {
 		remap[oldID] = newUUID.String()
 	}
 	var build models.Build
@@ -305,11 +223,76 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 	return nil
 }
 
+func (s *BuildService) insertNode(tx *gorm.DB, buildID uuid.UUID, n NodeDTO, idMap map[string]uuid.UUID, compIdMap map[string]uuid.UUID) error {
+	var uid uuid.UUID
+	if parsed, err := uuid.Parse(n.ID); err == nil {
+		uid = parsed
+	} else {
+		uid = uuid.New()
+	}
+	idMap[n.ID] = uid
+
+	if n.Details == nil {
+		n.Details = make(map[string]any)
+	}
+	if n.SubnetMask != "" {
+		n.Details["subnet_mask"] = n.SubnetMask
+	}
+	if n.Gateway != "" {
+		n.Details["gateway"] = n.Gateway
+	}
+	detailsJSON, _ := json.Marshal(n.Details)
+
+	node := models.Node{
+		ID:          uid,
+		BuildID:     buildID,
+		Type:        n.Type,
+		Name:        n.Name,
+		X:           n.X,
+		Y:           n.Y,
+		IP:          n.IP,
+		TailscaleIP: n.TailscaleIP,
+		Site:        n.Site,
+		Details:     detailsJSON,
+	}
+	if n.ParentID != nil && *n.ParentID != "" {
+		if mappedID, ok := idMap[*n.ParentID]; ok {
+			node.ParentID = &mappedID
+		} else if parsed, err := uuid.Parse(*n.ParentID); err == nil {
+			node.ParentID = &parsed
+		}
+	}
+
+	if err := tx.Create(&node).Error; err != nil {
+		return err
+	}
+
+	for _, comp := range n.InternalComponents {
+		compUID := uuid.New()
+		if parsed, err := uuid.Parse(comp.ID); err == nil {
+			compUID = parsed
+		}
+		compIdMap[comp.ID] = compUID
+		compDetailsJSON, _ := json.Marshal(comp.Details)
+		cModel := models.NodeComponent{
+			ID:      compUID,
+			NodeID:  uid,
+			Type:    comp.Type,
+			Name:    comp.Name,
+			Details: compDetailsJSON,
+		}
+		if err := tx.Create(&cModel).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *BuildService) GetByID(buildID uuid.UUID) (*models.Build, error) {
 	var build models.Build
 	if err := s.db.Preload("User").
 		Preload("Nodes").
-		Preload("Nodes.VirtualMachines").
 		Preload("Nodes.InternalComponents").
 		Preload("Edges").
 		Preload("Nodes.ServiceInstances").
@@ -340,7 +323,6 @@ type NodeDTO struct {
 	SubnetMask         string         `json:"subnet_mask,omitempty"`
 	Gateway            string         `json:"gateway,omitempty"`
 	Details            map[string]any `json:"details"`
-	VMs                []VMDTO        `json:"vms"`
 	InternalComponents []ComponentDTO `json:"internal_components"`
 	ParentID           *string        `json:"parent_id,omitempty"`
 }
@@ -350,19 +332,6 @@ type ComponentDTO struct {
 	Type    string         `json:"type"`
 	Name    string         `json:"name"`
 	Details map[string]any `json:"details"`
-}
-
-type VMDTO struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Type        string   `json:"type"`
-	IP          string   `json:"ip"`
-	TailscaleIP string   `json:"tailscale_ip,omitempty"`
-	OS          string   `json:"os"`
-	CPUCores    float64  `json:"cpu_cores"`
-	RAMMB       int      `json:"ram_mb"`
-	Status      string   `json:"status"`
-	Passthrough []string `json:"passthrough,omitempty"`
 }
 
 type ServiceDTO struct {
@@ -426,10 +395,20 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 
 		// Relational Clone:
 		idMap := make(map[uuid.UUID]uuid.UUID)
-		vmIdMap := make(map[uuid.UUID]uuid.UUID)
 
-		// 1. Clone Nodes
+		// Separate parent nodes and child nodes (VMs with parent_id)
+		var parentNodeList []models.Node
+		var childNodeList []models.Node
 		for _, node := range build.Nodes {
+			if node.ParentID != nil {
+				childNodeList = append(childNodeList, node)
+			} else {
+				parentNodeList = append(parentNodeList, node)
+			}
+		}
+
+		// 1. Clone parent nodes first
+		for _, node := range parentNodeList {
 			newUID := uuid.New()
 			idMap[node.ID] = newUID
 
@@ -444,24 +423,11 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 				TailscaleIP: node.TailscaleIP,
 				Site:        node.Site,
 				Details:     node.Details,
-				ParentID:    node.ParentID,
 			}
 			if err := tx.Create(&newNode).Error; err != nil {
 				return err
 			}
 
-			// 1.1 Clone VMs
-			for _, vm := range node.VirtualMachines {
-				newVM := vm // struct copy
-				newVM.ID = uuid.New()
-				vmIdMap[vm.ID] = newVM.ID
-				newVM.NodeID = newUID
-				if err := tx.Create(&newVM).Error; err != nil {
-					return err
-				}
-			}
-
-			// 1.2 Clone Internal Components
 			for _, comp := range node.InternalComponents {
 				newComp := comp
 				newComp.ID = uuid.New()
@@ -471,7 +437,6 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 				}
 			}
 
-			// 1.3 Clone Service Instances (Node bound)
 			for _, svc := range node.ServiceInstances {
 				newSvc := svc
 				newSvc.ID = uuid.New()
@@ -479,6 +444,42 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 				nodeIDPtr := newUID
 				newSvc.NodeID = &nodeIDPtr
 				if err := tx.Create(&newSvc).Error; err != nil {
+					return err
+				}
+			}
+		}
+
+		// 1b. Clone child nodes (VMs) — remap parent_id
+		for _, node := range childNodeList {
+			newUID := uuid.New()
+			idMap[node.ID] = newUID
+
+			newNode := models.Node{
+				ID:          newUID,
+				BuildID:     newBuild.ID,
+				Type:        node.Type,
+				Name:        node.Name,
+				X:           node.X,
+				Y:           node.Y,
+				IP:          node.IP,
+				TailscaleIP: node.TailscaleIP,
+				Site:        node.Site,
+				Details:     node.Details,
+			}
+			if node.ParentID != nil {
+				if mappedParent, ok := idMap[*node.ParentID]; ok {
+					newNode.ParentID = &mappedParent
+				}
+			}
+			if err := tx.Create(&newNode).Error; err != nil {
+				return err
+			}
+
+			for _, comp := range node.InternalComponents {
+				newComp := comp
+				newComp.ID = uuid.New()
+				newComp.NodeID = newUID
+				if err := tx.Create(&newComp).Error; err != nil {
 					return err
 				}
 			}
@@ -520,26 +521,10 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 			}
 		}
 
-		// Fix ParentIDs on cloned Nodes
-		var clonedNodes []models.Node
-		if err := tx.Where("build_id = ?", newBuild.ID).Find(&clonedNodes).Error; err == nil {
-			for _, cn := range clonedNodes {
-				if cn.ParentID != nil {
-					if mappedParent, ok := idMap[*cn.ParentID]; ok {
-						cn.ParentID = &mappedParent
-						tx.Save(&cn)
-					}
-				}
-			}
-		}
-
-		// Remap k8s_members node_id/vm_id in settings to match cloned UUIDs
+		// Remap k8s_members node_id in settings to match cloned UUIDs
 		if len(newBuild.Settings) > 0 {
-			remap := make(map[string]string, len(idMap)+len(vmIdMap))
+			remap := make(map[string]string, len(idMap))
 			for oldUUID, newUUID := range idMap {
-				remap[oldUUID.String()] = newUUID.String()
-			}
-			for oldUUID, newUUID := range vmIdMap {
 				remap[oldUUID.String()] = newUUID.String()
 			}
 			if updated := remapK8sSettingsIDs(newBuild.Settings, remap); string(updated) != string(newBuild.Settings) {
