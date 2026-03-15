@@ -185,6 +185,7 @@ export interface HardwareNode {
   name: string;
   ip?: string;
   tailscale_ip?: string;
+  site?: string;
   subnet_mask?: string;
   gateway?: string;
   x: number;

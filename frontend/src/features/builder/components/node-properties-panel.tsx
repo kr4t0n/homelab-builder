@@ -107,6 +107,7 @@ export function NodePropertiesPanel() {
   const [name, setName] = useState('');
   const [ip, setIp] = useState('');
   const [tailscaleIp, setTailscaleIp] = useState('');
+  const [site, setSite] = useState('');
   const [mask, setMask] = useState('');
   const [gateway, setGateway] = useState('');
   const [dhcpEnabled, setDhcpEnabled] = useState(false);
@@ -141,6 +142,7 @@ export function NodePropertiesPanel() {
       if (name !== selectedNode.name) setName(selectedNode.name);
       if (ip !== (selectedNode.ip || '')) setIp(selectedNode.ip || '');
       if (tailscaleIp !== (selectedNode.tailscale_ip || '')) setTailscaleIp(selectedNode.tailscale_ip || '');
+      if (site !== (selectedNode.site || '')) setSite(selectedNode.site || '');
       if (mask !== (selectedNode.subnet_mask || '')) setMask(selectedNode.subnet_mask || '');
       if (gateway !== (selectedNode.gateway || '')) setGateway(selectedNode.gateway || '');
       if (dhcpEnabled !== (selectedNode.details?.dhcp_enabled ?? true))
@@ -214,6 +216,7 @@ export function NodePropertiesPanel() {
           name,
           ip,
           tailscale_ip: tailscaleIp,
+          site,
           subnet_mask: mask,
           gateway,
           details: {
@@ -235,6 +238,7 @@ export function NodePropertiesPanel() {
     name,
     ip,
     tailscaleIp,
+    site,
     mask,
     gateway,
     dhcpEnabled,
@@ -501,6 +505,19 @@ export function NodePropertiesPanel() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Site URL — always visible for networked nodes */}
+        {isNetworked && (
+          <div className="space-y-2">
+            <Label htmlFor="site">Site</Label>
+            <Input
+              id="site"
+              value={site}
+              onChange={e => setSite(e.target.value)}
+              placeholder="e.g. https://my-service.local"
+            />
           </div>
         )}
 

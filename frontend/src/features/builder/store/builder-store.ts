@@ -356,6 +356,7 @@ export const useBuilderStore = create<BuilderState>()(
           name: `${orig.name} (copy)`,
           ip: '',
           tailscale_ip: '',
+          site: '',
           x: orig.x + 40,
           y: orig.y + 40,
           vms: [],
@@ -815,6 +816,7 @@ export const useBuilderStore = create<BuilderState>()(
           name: n.name,
           ip: n.ip,
           tailscale_ip: n.tailscale_ip || '',
+          site: n.site || '',
           x: n.x || 0,
           y: n.y || 0,
           vms: (n.virtual_machines || []).map((vm: any) => ({
@@ -879,6 +881,7 @@ export const useBuilderStore = create<BuilderState>()(
             y: rfn.position.y,
             ip: rfn.data?.ip || hw.ip || '',
             tailscale_ip: rfn.data?.tailscale_ip || hw.tailscale_ip || '',
+            site: rfn.data?.site || hw.site || '',
             details: rfn.data?.details || hw.details || {},
             vms: rfn.data?.vms || hw.vms || [],
             internal_components: rfn.data?.internal_components || hw.internal_components || [],

@@ -173,6 +173,7 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 			Y:           n.Y,
 			IP:          n.IP,
 			TailscaleIP: n.TailscaleIP,
+			Site:        n.Site,
 			Details:     detailsJSON,
 		}
 		if n.ParentID != nil && *n.ParentID != "" {
@@ -335,6 +336,7 @@ type NodeDTO struct {
 	Y                  float64        `json:"y"`
 	IP                 string         `json:"ip"`
 	TailscaleIP        string         `json:"tailscale_ip,omitempty"`
+	Site               string         `json:"site,omitempty"`
 	SubnetMask         string         `json:"subnet_mask,omitempty"`
 	Gateway            string         `json:"gateway,omitempty"`
 	Details            map[string]any `json:"details"`
@@ -440,6 +442,7 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 				Y:           node.Y,
 				IP:          node.IP,
 				TailscaleIP: node.TailscaleIP,
+				Site:        node.Site,
 				Details:     node.Details,
 				ParentID:    node.ParentID,
 			}

@@ -176,6 +176,7 @@ type Node struct {
 	Y           float64         `gorm:"not null;default:0" json:"y"`
 	IP          string          `gorm:"default:''" json:"ip"`
 	TailscaleIP string          `gorm:"default:''" json:"tailscale_ip"`
+	Site        string          `gorm:"default:''" json:"site"`
 	Details     json.RawMessage `gorm:"type:jsonb;default:'{}'" json:"details"` // Hardware specs
 	ParentID    *uuid.UUID      `gorm:"type:uuid" json:"parent_id,omitempty"`   // For nested components
 	CreatedAt   time.Time       `json:"created_at"`

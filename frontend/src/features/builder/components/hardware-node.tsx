@@ -42,6 +42,7 @@ type HardwareNodeData = {
   type: HardwareType;
   ip?: string;
   tailscale_ip?: string;
+  site?: string;
   vms?: VirtualMachine[];
   internal_components?: HardwareComponent[];
   status?: 'online' | 'offline' | 'warning';
