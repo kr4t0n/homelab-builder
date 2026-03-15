@@ -12,6 +12,7 @@ import {
   ConnectionMode,
 } from '@xyflow/react';
 import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
 import { toJpeg } from 'html-to-image';
 import '@xyflow/react/dist/style.css';
 import Joyride, { type CallBackProps, STATUS, type Step } from 'react-joyride';
@@ -468,7 +469,7 @@ function Flow() {
           const ramVal = data.details?.ram ? Number(data.details.ram) : undefined;
 
           addVM(targetNode.id, {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             name: data.name,
             type: 'container',
             status: 'running',

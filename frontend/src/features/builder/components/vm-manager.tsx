@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { v4 as uuidv4 } from 'uuid'
 import {
     DndContext,
     closestCenter,
@@ -402,7 +403,7 @@ export function VMManager({ nodeId }: Props) {
     const handleAdd = () => {
         if (!newVM.name?.trim()) return
         addVM(nodeId, {
-            id: crypto.randomUUID(),
+            id: uuidv4(),
             name: newVM.name!,
             type: newVM.type as VMType || 'container',
             status: newVM.status as VirtualMachine['status'] || 'running',

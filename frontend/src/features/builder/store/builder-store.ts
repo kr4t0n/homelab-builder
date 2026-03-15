@@ -11,6 +11,7 @@ import {
   addEdge,
   type Connection,
 } from '@xyflow/react';
+import { v4 as uuidv4 } from 'uuid';
 import type {
   Service,
   HardwareNode,
@@ -349,7 +350,7 @@ export const useBuilderStore = create<BuilderState>()(
         const state = get();
         const orig = state.hardwareNodes.find(n => n.id === nodeId);
         if (!orig) return;
-        const newId = crypto.randomUUID();
+        const newId = uuidv4();
         const dup: HardwareNode = {
           ...orig,
           id: newId,
