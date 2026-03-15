@@ -72,6 +72,55 @@ func (s *BuildService) Update(buildID uuid.UUID, userID uuid.UUID, input SyncGra
 	return s.GetByID(buildID)
 }
 
+// remapK8sSettingsIDs rewrites k8s_members node_id/vm_id references using the
+// provided old→new ID mapping. Returns the original bytes unchanged when no
+// k8s_members key exists or nothing needs remapping.
+func remapK8sSettingsIDs(settingsJSON []byte, idRemap map[string]string) []byte {
+	var settings map[string]any
+	if err := json.Unmarshal(settingsJSON, &settings); err != nil {
+		return settingsJSON
+	}
+	membersRaw, ok := settings["k8s_members"]
+	if !ok {
+		return settingsJSON
+	}
+	members, ok := membersRaw.([]any)
+	if !ok {
+		return settingsJSON
+	}
+
+	changed := false
+	for i, raw := range members {
+		m, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if nodeID, ok := m["node_id"].(string); ok {
+			if newID, exists := idRemap[nodeID]; exists && newID != nodeID {
+				m["node_id"] = newID
+				changed = true
+			}
+		}
+		if vmID, ok := m["vm_id"].(string); ok {
+			if newID, exists := idRemap[vmID]; exists && newID != vmID {
+				m["vm_id"] = newID
+				changed = true
+			}
+		}
+		members[i] = m
+	}
+
+	if !changed {
+		return settingsJSON
+	}
+	settings["k8s_members"] = members
+	out, err := json.Marshal(settings)
+	if err != nil {
+		return settingsJSON
+	}
+	return out
+}
+
 func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraphInput) error {
 	// 1. Delete existing nodes/edges/services (cleanup)
 	if err := tx.Where("build_id = ?", buildID).Delete(&models.Edge{}).Error; err != nil {
@@ -91,6 +140,7 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 	}
 
 	idMap := make(map[string]uuid.UUID)
+	vmIdMap := make(map[string]uuid.UUID)
 	compIdMap := make(map[string]uuid.UUID)
 
 	// 2. Insert Nodes
@@ -161,6 +211,7 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 			if parsed, err := uuid.Parse(vm.ID); err == nil {
 				vmUID = parsed
 			}
+			vmIdMap[vm.ID] = vmUID
 
 			remappedPT := make([]string, 0, len(vm.Passthrough))
 			for _, ptRef := range vm.Passthrough {
@@ -228,6 +279,23 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 				Status:           "stopped",
 			}
 			if err := tx.Create(&svc).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	// 5. Remap k8s_members node_id/vm_id in settings to match newly created UUIDs
+	remap := make(map[string]string, len(idMap)+len(vmIdMap))
+	for oldID, newUUID := range idMap {
+		remap[oldID] = newUUID.String()
+	}
+	for oldID, newUUID := range vmIdMap {
+		remap[oldID] = newUUID.String()
+	}
+	var build models.Build
+	if err := tx.Select("id", "settings").First(&build, "id = ?", buildID).Error; err == nil && len(build.Settings) > 0 {
+		if updated := remapK8sSettingsIDs(build.Settings, remap); string(updated) != string(build.Settings) {
+			if err := tx.Model(&build).Update("settings", updated).Error; err != nil {
 				return err
 			}
 		}
@@ -356,6 +424,7 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 
 		// Relational Clone:
 		idMap := make(map[uuid.UUID]uuid.UUID)
+		vmIdMap := make(map[uuid.UUID]uuid.UUID)
 
 		// 1. Clone Nodes
 		for _, node := range build.Nodes {
@@ -382,6 +451,7 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 			for _, vm := range node.VirtualMachines {
 				newVM := vm // struct copy
 				newVM.ID = uuid.New()
+				vmIdMap[vm.ID] = newVM.ID
 				newVM.NodeID = newUID
 				if err := tx.Create(&newVM).Error; err != nil {
 					return err
@@ -456,6 +526,23 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 						cn.ParentID = &mappedParent
 						tx.Save(&cn)
 					}
+				}
+			}
+		}
+
+		// Remap k8s_members node_id/vm_id in settings to match cloned UUIDs
+		if len(newBuild.Settings) > 0 {
+			remap := make(map[string]string, len(idMap)+len(vmIdMap))
+			for oldUUID, newUUID := range idMap {
+				remap[oldUUID.String()] = newUUID.String()
+			}
+			for oldUUID, newUUID := range vmIdMap {
+				remap[oldUUID.String()] = newUUID.String()
+			}
+			if updated := remapK8sSettingsIDs(newBuild.Settings, remap); string(updated) != string(newBuild.Settings) {
+				newBuild.Settings = updated
+				if err := tx.Model(newBuild).Update("settings", updated).Error; err != nil {
+					return err
 				}
 			}
 		}
