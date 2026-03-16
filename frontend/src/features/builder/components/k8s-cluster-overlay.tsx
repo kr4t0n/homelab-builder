@@ -32,6 +32,7 @@ import {
   Smartphone,
   Tablet,
   Tv,
+  ExternalLink,
 } from 'lucide-react';
 import { useBuilderStore } from '../store/builder-store';
 import { cn } from '../../../lib/utils';
@@ -374,6 +375,11 @@ function K8sOverlayInner() {
                                 <div className="flex items-center gap-1.5">
                                   <Package className="h-3 w-3 shrink-0" style={{ color: cluster.color }} />
                                   <span className="text-[11px] font-medium text-slate-200 truncate">{wl.name}</span>
+                                  {wl.site && (
+                                    <a href={wl.site} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 shrink-0" onClick={e => e.stopPropagation()}>
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5 text-[9px] text-slate-500">
                                   <span>x{wl.replicas}</span>

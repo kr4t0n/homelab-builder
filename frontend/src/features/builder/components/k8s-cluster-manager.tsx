@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../../../components/ui/dialog';
-import { Plus, Trash2, Pencil, Check, X, Network, Package, Search, Crown, Cog } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Network, Package, Search, Crown, Cog, ExternalLink } from 'lucide-react';
 import type { K8sCluster, K8sDistro, K8sCNI } from '../../../types';
 import { cn } from '../../../lib/utils';
 
@@ -56,6 +56,7 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
     port: 8080,
     cpu_request: 0,
     ram_request: 0,
+    site: '',
   });
   const [form, setForm] = useState({
     name: '',
@@ -82,7 +83,7 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
   };
 
   const resetWorkloadForm = () => {
-    setWorkloadForm({ name: '', service_id: undefined, namespace: 'default', replicas: 1, port: 8080, cpu_request: 0, ram_request: 0 });
+    setWorkloadForm({ name: '', service_id: undefined, namespace: 'default', replicas: 1, port: 8080, cpu_request: 0, ram_request: 0, site: '' });
     setWorkloadSearch('');
   };
 
@@ -120,6 +121,7 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
       cpu_request: workloadForm.cpu_request || undefined,
       ram_request: workloadForm.ram_request || undefined,
       port: workloadForm.port || undefined,
+      site: workloadForm.site?.trim() || undefined,
     });
     resetWorkloadForm();
     setAddingWorkload(false);
@@ -415,6 +417,10 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
                               <Input className="h-8 text-sm font-mono" type="number" value={workloadForm.port} onChange={e => setWorkloadForm(p => ({ ...p, port: Number(e.target.value) }))} />
                             </div>
                           </div>
+                          <div>
+                            <Label className="text-xs mb-1">Site <span className="text-muted-foreground">(optional)</span></Label>
+                            <Input className="h-8 text-sm font-mono" placeholder="https://service.homelab.local" value={workloadForm.site} onChange={e => setWorkloadForm(p => ({ ...p, site: e.target.value }))} />
+                          </div>
                           <div className="flex gap-2">
                             <Button size="sm" className="h-8 text-sm" onClick={handleAddWorkload} disabled={!workloadForm.name.trim()}>
                               <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Workload
@@ -450,7 +456,14 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
                                       <div key={wl.id} className="flex items-center gap-3 rounded-md border px-3 py-2 bg-background/60 group">
                                         <Package className="h-4 w-4 text-emerald-400 shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                          <span className="text-sm font-medium block truncate">{wl.name}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-sm font-medium truncate">{wl.name}</span>
+                                            {wl.site && (
+                                              <a href={wl.site} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 shrink-0" onClick={e => e.stopPropagation()}>
+                                                <ExternalLink className="h-3 w-3" />
+                                              </a>
+                                            )}
+                                          </div>
                                           <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
                                             <span className="font-mono">{wl.namespace}</span>
                                             <span>x{wl.replicas}</span>
