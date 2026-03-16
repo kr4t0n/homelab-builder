@@ -378,7 +378,6 @@ function K8sOverlayInner() {
                                 <div className="flex items-center gap-2 mt-0.5 text-[9px] text-slate-500">
                                   <span>x{wl.replicas}</span>
                                   {wl.port && <span className="font-mono">:{wl.port}</span>}
-                                  {wl.ingress && <span className="text-emerald-400 font-bold">ING</span>}
                                   {wl.cpu_request ? <span>{wl.cpu_request}m</span> : null}
                                   {wl.ram_request ? <span>{wl.ram_request}MB</span> : null}
                                 </div>

@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../../../components/ui/dialog';
-import { Plus, Trash2, Pencil, Check, X, Network, Package, Search, Crown, Cog, Globe } from 'lucide-react';
+import { Plus, Trash2, Pencil, Check, X, Network, Package, Search, Crown, Cog } from 'lucide-react';
 import type { K8sCluster, K8sDistro, K8sCNI } from '../../../types';
 import { cn } from '../../../lib/utils';
 
@@ -56,7 +56,6 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
     port: 8080,
     cpu_request: 0,
     ram_request: 0,
-    ingress: false,
   });
   const [form, setForm] = useState({
     name: '',
@@ -83,7 +82,7 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
   };
 
   const resetWorkloadForm = () => {
-    setWorkloadForm({ name: '', service_id: undefined, namespace: 'default', replicas: 1, port: 8080, cpu_request: 0, ram_request: 0, ingress: false });
+    setWorkloadForm({ name: '', service_id: undefined, namespace: 'default', replicas: 1, port: 8080, cpu_request: 0, ram_request: 0 });
     setWorkloadSearch('');
   };
 
@@ -121,7 +120,6 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
       cpu_request: workloadForm.cpu_request || undefined,
       ram_request: workloadForm.ram_request || undefined,
       port: workloadForm.port || undefined,
-      ingress: workloadForm.ingress,
     });
     resetWorkloadForm();
     setAddingWorkload(false);
@@ -461,11 +459,6 @@ export function K8sClusterManager({ open, onOpenChange }: Props) {
                                             {wl.ram_request ? <span>{wl.ram_request}MB</span> : null}
                                           </div>
                                         </div>
-                                        {wl.ingress && (
-                                          <Badge variant="outline" className="text-[10px] h-5 text-emerald-400 border-emerald-500/30">
-                                            <Globe className="h-2.5 w-2.5 mr-1" /> Ingress
-                                          </Badge>
-                                        )}
                                         <Button
                                           size="icon"
                                           variant="ghost"

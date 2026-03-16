@@ -416,28 +416,6 @@ export function generateK8sManifests(clusters: K8sCluster[], workloads: K8sWorkl
             docs.push(`  type: ClusterIP`)
         }
 
-        if (wl.ingress && wl.port) {
-            docs.push('---')
-            docs.push(`apiVersion: networking.k8s.io/v1`)
-            docs.push(`kind: Ingress`)
-            docs.push(`metadata:`)
-            docs.push(`  name: ${slug}`)
-            docs.push(`  namespace: ${wl.namespace}`)
-            docs.push(`  annotations:`)
-            docs.push(`    nginx.ingress.kubernetes.io/rewrite-target: /`)
-            docs.push(`spec:`)
-            docs.push(`  rules:`)
-            docs.push(`    - host: ${slug}.local`)
-            docs.push(`      http:`)
-            docs.push(`        paths:`)
-            docs.push(`          - path: /`)
-            docs.push(`            pathType: Prefix`)
-            docs.push(`            backend:`)
-            docs.push(`              service:`)
-            docs.push(`                name: ${slug}`)
-            docs.push(`                port:`)
-            docs.push(`                  number: ${wl.port}`)
-        }
     }
 
     return docs.join('\n')

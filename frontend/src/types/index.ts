@@ -213,7 +213,6 @@ export interface K8sWorkload {
   cpu_request?: number;
   ram_request?: number;
   port?: number;
-  ingress: boolean;
 }
 
 export type HardwareNodeValidationIssue = {
