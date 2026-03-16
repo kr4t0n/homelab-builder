@@ -66,6 +66,9 @@ interface BuilderState {
   // VM Node Management (VMs are standalone nodes with parent_id)
   addVMNode: (hostId: string, type: HardwareType, name: string) => void;
 
+  // Passthrough
+  setPassthrough: (hostId: string, componentId: string, vmId: string | undefined) => void;
+
   // Reordering
   reorderInternalComponents: (nodeId: string, orderedIds: string[]) => void;
 
@@ -337,10 +340,25 @@ export const useBuilderStore = create<BuilderState>()(
             .map(n => n.id);
           const removeIds = new Set([nodeId, ...childIds]);
 
+          // Clear passthrough_to on host components that reference any removed VM
+          const hardwareNodes = state.hardwareNodes
+            .filter(n => !removeIds.has(n.id))
+            .map(n => {
+              if (!n.internal_components?.some(c => c.passthrough_to && removeIds.has(c.passthrough_to))) return n;
+              return {
+                ...n,
+                internal_components: n.internal_components!.map(c =>
+                  c.passthrough_to && removeIds.has(c.passthrough_to)
+                    ? { ...c, passthrough_to: undefined }
+                    : c,
+                ),
+              };
+            });
+
           return {
             historyPast: [...state.historyPast, snap].slice(-50),
             historyFuture: [],
-            hardwareNodes: state.hardwareNodes.filter(n => !removeIds.has(n.id)),
+            hardwareNodes,
             nodes: state.nodes.filter(n => !removeIds.has(n.id)),
             edges: state.edges.filter(e => !removeIds.has(e.source) && !removeIds.has(e.target)),
             selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
@@ -483,6 +501,35 @@ export const useBuilderStore = create<BuilderState>()(
                     data: {
                       ...n.data,
                       internal_components: updated.find(h => h.id === nodeId)?.internal_components,
+                    },
+                  }
+                : n,
+            ),
+          };
+        });
+      },
+
+      setPassthrough: (hostId, componentId, vmId) => {
+        set(state => {
+          const updated = state.hardwareNodes.map(n =>
+            n.id === hostId
+              ? {
+                  ...n,
+                  internal_components: (n.internal_components || []).map(c =>
+                    c.id === componentId ? { ...c, passthrough_to: vmId } : c,
+                  ),
+                }
+              : n,
+          );
+          return {
+            hardwareNodes: updated,
+            nodes: state.nodes.map(n =>
+              n.id === hostId
+                ? {
+                    ...n,
+                    data: {
+                      ...n.data,
+                      internal_components: updated.find(h => h.id === hostId)?.internal_components,
                     },
                   }
                 : n,

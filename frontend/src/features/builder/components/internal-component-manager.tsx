@@ -20,7 +20,7 @@ import { useBuilderStore } from "../store/builder-store"
 import { Button } from "../../../components/ui/button"
 import { Badge } from "../../../components/ui/badge"
 import { Trash2, HardDrive, Cpu, ScanLine, CircuitBoard, Component, Zap, Archive, Pencil, GripVertical } from "lucide-react"
-import type { HardwareType, HardwareComponent } from "../../../types"
+import type { HardwareType, HardwareComponent, HardwareNode } from "../../../types"
 import { ComponentDetailsDialog } from "./component-details-dialog"
 import { ConfirmDialog } from "../../../components/ui/confirm-dialog"
 
@@ -44,12 +44,16 @@ interface Props {
 
 function SortableComponent({
     comp,
+    childVMs,
     onEdit,
     onDelete,
+    onPassthrough,
 }: {
     comp: HardwareComponent
+    childVMs: HardwareNode[]
     onEdit: (comp: HardwareComponent) => void
     onDelete: (id: string) => void
+    onPassthrough: (componentId: string, vmId: string | undefined) => void
 }) {
     const {
         attributes,
@@ -68,69 +72,93 @@ function SortableComponent({
     }
 
     const Icon = COMPONENT_ICONS[comp.type] || Component
+    const ptVm = comp.passthrough_to ? childVMs.find(v => v.id === comp.passthrough_to) : null
 
     return (
         <div
             ref={setNodeRef}
             style={style}
-            className="flex items-start gap-2 rounded-lg border bg-background/60 p-2.5 group"
+            className="flex flex-col gap-1.5 rounded-lg border bg-background/60 p-2.5 group"
         >
-            <button
-                className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                {...attributes}
-                {...listeners}
-            >
-                <GripVertical className="h-3.5 w-3.5" />
-            </button>
-            <div className="mt-0.5 shrink-0">
-                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(comp)}>
-                <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold truncate hover:underline underline-offset-2 decoration-muted-foreground/50">
-                        {comp.name}
-                    </span>
-                    <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0 uppercase opacity-70">
-                        {comp.type}
-                    </Badge>
-                </div>
-                <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground truncate">
-                    {comp.details?.model && <span>{comp.details.model}</span>}
-                    {comp.details?.ram && <span>{comp.details.ram} {comp.type === 'gpu' ? 'VRAM' : ''}</span>}
-                    {comp.details?.storage && <span>{comp.details.storage}</span>}
-                </div>
-            </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-muted-foreground hover:text-primary"
-                    onClick={() => onEdit(comp)}
-                    title="Edit component"
+            <div className="flex items-start gap-2">
+                <button
+                    className="mt-0.5 shrink-0 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                    {...attributes}
+                    {...listeners}
                 >
-                    <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(comp.id);
-                    }}
-                    title="Remove component"
-                >
-                    <Trash2 className="h-3 w-3" />
-                </Button>
+                    <GripVertical className="h-3.5 w-3.5" />
+                </button>
+                <div className="mt-0.5 shrink-0">
+                    <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(comp)}>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold truncate hover:underline underline-offset-2 decoration-muted-foreground/50">
+                            {comp.name}
+                        </span>
+                        <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0 uppercase opacity-70">
+                            {comp.type}
+                        </Badge>
+                        {ptVm && (
+                            <Badge className="text-[9px] h-3.5 px-1 shrink-0 bg-violet-500/20 text-violet-400 border-violet-500/30">
+                                PT → {ptVm.name}
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-2 text-[10px] text-muted-foreground truncate">
+                        {comp.details?.model && <span>{comp.details.model}</span>}
+                        {comp.details?.ram && <span>{comp.details.ram} {comp.type === 'gpu' ? 'VRAM' : ''}</span>}
+                        {comp.details?.storage && <span>{comp.details.storage}</span>}
+                    </div>
+                </div>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-muted-foreground hover:text-primary"
+                        onClick={() => onEdit(comp)}
+                        title="Edit component"
+                    >
+                        <Pencil className="h-3 w-3" />
+                    </Button>
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(comp.id);
+                        }}
+                        title="Remove component"
+                    >
+                        <Trash2 className="h-3 w-3" />
+                    </Button>
+                </div>
             </div>
+            {childVMs.length > 0 && (
+                <div className="flex items-center gap-1.5 pl-7">
+                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">Passthrough:</span>
+                    <select
+                        className="h-6 text-[10px] rounded border bg-background px-1.5 flex-1 min-w-0"
+                        value={comp.passthrough_to || ''}
+                        onChange={e => onPassthrough(comp.id, e.target.value || undefined)}
+                    >
+                        <option value="">None</option>
+                        {childVMs.map(vm => (
+                            <option key={vm.id} value={vm.id}>{vm.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
         </div>
     )
 }
 
 export function InternalComponentManager({ nodeId }: Props) {
-    const { hardwareNodes, removeInternalComponent, updateInternalComponent, reorderInternalComponents } = useBuilderStore()
+    const { hardwareNodes, removeInternalComponent, updateInternalComponent, reorderInternalComponents, setPassthrough } = useBuilderStore()
     const node = hardwareNodes.find(n => n.id === nodeId)
     const components = node?.internal_components || []
+    const childVMs = hardwareNodes.filter(n => n.parent_id === nodeId)
     
     const [editingComponent, setEditingComponent] = useState<HardwareComponent | null>(null)
     const [deletingCompId, setDeletingCompId] = useState<string | null>(null)
@@ -167,8 +195,10 @@ export function InternalComponentManager({ nodeId }: Props) {
                             <SortableComponent
                                 key={comp.id}
                                 comp={comp}
+                                childVMs={childVMs}
                                 onEdit={setEditingComponent}
                                 onDelete={setDeletingCompId}
+                                onPassthrough={(compId, vmId) => setPassthrough(nodeId, compId, vmId)}
                             />
                         ))}
                     </div>

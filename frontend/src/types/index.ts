@@ -162,6 +162,7 @@ export interface HardwareComponent {
   type: HardwareType;
   name: string;
   details?: HardwareSpec;
+  passthrough_to?: string;
 }
 
 export interface HardwareNode {

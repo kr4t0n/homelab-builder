@@ -644,6 +644,35 @@ export function NodePropertiesPanel() {
         {/* Component Manager (GPUs, Disks, etc) — only for non-VM nodes */}
         {!isVM && <InternalComponentManager nodeId={selectedNode.id} />}
 
+        {/* Passthrough devices — read-only list for VM nodes */}
+        {isVM && hostNode && (() => {
+          const ptDevices = (hostNode.internal_components || []).filter(c => c.passthrough_to === selectedNode.id);
+          if (ptDevices.length === 0) return null;
+          return (
+            <div className="space-y-2 pt-4 border-t">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Passthrough Devices ({ptDevices.length})
+              </h4>
+              <div className="space-y-1.5">
+                {ptDevices.map(d => (
+                  <div key={d.id} className="flex items-center gap-2 p-2 bg-violet-500/5 border border-violet-500/20 rounded-md">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-semibold truncate">{d.name}</span>
+                        <span className="text-[9px] h-3.5 px-1 rounded border opacity-70 uppercase inline-flex items-center">{d.type}</span>
+                        <span className="text-[9px] h-3.5 px-1 rounded bg-violet-500/20 text-violet-400 border-violet-500/30 border inline-flex items-center">PT</span>
+                      </div>
+                      {d.details?.model && (
+                        <p className="text-[10px] text-muted-foreground truncate">{d.details.model}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Kubernetes enrollment */}
         {isComputeNode(selectedNode.type) && <K8sEnrollmentSection nodeId={selectedNode.id} />}
 

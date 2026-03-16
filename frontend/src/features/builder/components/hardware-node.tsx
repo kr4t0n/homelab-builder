@@ -348,16 +348,22 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
   const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
   const k8sMembers = useBuilderStore(s => s.k8sMembers);
   const k8sClusters = useBuilderStore(s => s.k8sClusters);
+  const hardwareNodes = useBuilderStore(s => s.hardwareNodes);
   const components = nodeData.internal_components ?? [];
   const isVM = !!nodeData.parent_id;
 
   const nodeK8s = k8sMembers.find((m: K8sMember) => m.node_id === id);
   const nodeK8sCluster = nodeK8s ? k8sClusters.find((c: K8sCluster) => c.id === nodeK8s.cluster_id) : null;
   const hasComponents = components.length > 0;
+
+  // For VM nodes: derive passthrough devices from the host
+  const hostNode = isVM ? hardwareNodes.find(n => n.id === nodeData.parent_id) : null;
+  const passthroughDevices = isVM && hostNode
+    ? (hostNode.internal_components || []).filter(c => c.passthrough_to === id)
+    : [];
+  const hasPT = passthroughDevices.length > 0;
   const isCompute = isComputeNode(nodeData.type);
 
-  // For host nodes: count child VMs for resource calculation
-  const hardwareNodes = useBuilderStore(s => s.hardwareNodes);
   const childVMs = hardwareNodes.filter(n => n.parent_id === id);
   const childVMCount = childVMs.length;
 
@@ -639,6 +645,28 @@ export const HardwareNode = memo(({ id, data, selected }: NodeProps) => {
                 <div className="space-y-1">
                   {components.map(comp => (
                     <ComponentChip key={comp.id} component={comp} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {hasPT && (
+              <div className="space-y-1 pt-2 border-t border-violet-500/20">
+                <p className="text-[10px] uppercase tracking-wider text-violet-400 font-medium px-1">
+                  Passthrough
+                </p>
+                <div className="space-y-1">
+                  {passthroughDevices.map(comp => (
+                    <div
+                      key={comp.id}
+                      className="flex items-center gap-1.5 rounded border px-1.5 py-1 text-[10px] bg-violet-500/5 border-violet-500/20 text-muted-foreground"
+                    >
+                      {(() => { const C = (TYPE_CONFIG[comp.type] ?? FALLBACK_CONFIG).icon; return <C className="h-2.5 w-2.5 shrink-0 text-violet-400" />; })()}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-semibold max-w-22.5" title={comp.name}>{comp.name}</div>
+                      </div>
+                      <span className="text-[8px] px-1 py-px rounded bg-violet-500/20 text-violet-400 font-semibold shrink-0">PT</span>
+                    </div>
                   ))}
                 </div>
               </div>
