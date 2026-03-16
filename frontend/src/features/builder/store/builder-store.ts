@@ -71,6 +71,7 @@ interface BuilderState {
 
   // Reordering
   reorderInternalComponents: (nodeId: string, orderedIds: string[]) => void;
+  reorderVMs: (hostId: string, orderedVmIds: string[]) => void;
 
   // Actions
   autoAssignIP: (nodeId?: string) => string | null;
@@ -603,6 +604,19 @@ export const useBuilderStore = create<BuilderState>()(
                 : n,
             ),
           };
+        });
+      },
+
+      reorderVMs: (hostId, orderedVmIds) => {
+        set(state => {
+          const vmSet = new Set(orderedVmIds);
+          const vms = state.hardwareNodes.filter(n => n.parent_id === hostId && vmSet.has(n.id));
+          const byId = new Map(vms.map(n => [n.id, n]));
+          const ordered = orderedVmIds.map(id => byId.get(id)).filter(Boolean) as typeof vms;
+          const rest = state.hardwareNodes.filter(n => !(n.parent_id === hostId && vmSet.has(n.id)));
+          const insertIdx = rest.findIndex(n => n.id === hostId) + 1;
+          const hardwareNodes = [...rest.slice(0, insertIdx), ...ordered, ...rest.slice(insertIdx)];
+          return { hardwareNodes };
         });
       },
 

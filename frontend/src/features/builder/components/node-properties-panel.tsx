@@ -15,16 +15,33 @@ import {
   ChevronDown,
   Shield,
   Network,
-  Plus,
   Server,
+  GripVertical,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '../../../lib/utils';
 import { InternalComponentManager } from './internal-component-manager';
 import { canNodeHostVMs, nodeHasCPU, nodeHasDynamicPorts, nodeHasRAM, nodeHasStorage, isNetworkNode, isComputeNode } from '../../../lib/hardware-config';
 import { getNodePortCount, parsePortCount } from '../lib/port-count';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
-import type { K8sRole } from '../../../types';
+import type { K8sRole, HardwareNode } from '../../../types';
 
 const IP_REGEX =
   /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -93,6 +110,126 @@ function K8sEnrollmentSection({ nodeId }: { nodeId: string }) {
   );
 }
 
+function SortableVM({
+  vm,
+  onSelect,
+}: {
+  vm: HardwareNode;
+  onSelect: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: vm.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-2.5 rounded-lg border bg-background/60 cursor-pointer hover:bg-muted/40 transition-colors group"
+      onClick={() => onSelect(vm.id)}
+    >
+      <button
+        className="shrink-0 cursor-grab active:cursor-grabbing touch-none text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        onClick={e => e.stopPropagation()}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <Server className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <span className="text-xs font-semibold truncate flex-1">{vm.name}</span>
+      <span className="text-[10px] text-muted-foreground font-mono">
+        {vm.ip || 'no IP'}
+      </span>
+    </div>
+  );
+}
+
+function VirtualMachineSection({
+  hostId,
+  childVMs,
+  onSelectNode,
+  cpuWarning,
+  ramWarning,
+  usedCpu,
+  totalCpu,
+  usedRam,
+  totalRamMB,
+}: {
+  hostId: string;
+  childVMs: HardwareNode[];
+  onSelectNode: (id: string) => void;
+  cpuWarning: boolean;
+  ramWarning: boolean;
+  usedCpu: number;
+  totalCpu: number;
+  usedRam: number;
+  totalRamMB: number;
+}) {
+  const { reorderVMs } = useBuilderStore();
+  const hasWarning = cpuWarning || ramWarning;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = childVMs.findIndex(vm => vm.id === active.id);
+    const newIndex = childVMs.findIndex(vm => vm.id === over.id);
+    const reordered = arrayMove(childVMs, oldIndex, newIndex);
+    reorderVMs(hostId, reordered.map(vm => vm.id));
+  };
+
+  return (
+    <div className="space-y-3 pt-4 border-t">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Virtual Machines ({childVMs.length})
+        </h4>
+      </div>
+
+      {hasWarning && (
+        <div className="p-2.5 bg-destructive/10 border border-destructive/20 rounded-md text-xs text-destructive flex items-start gap-2 animate-in fade-in">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold mb-0.5">Resource Warning</p>
+            <p className="opacity-90 leading-relaxed">
+              This node is over-provisioned.
+              {cpuWarning && ` Used CPU: ${usedCpu}/${totalCpu}.`}
+              {ramWarning &&
+                ` Used RAM: ${Math.round(usedRam / 1024)}GB/${Math.round(totalRamMB / 1024)}GB.`}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {childVMs.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={childVMs.map(vm => vm.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {childVMs.map(vm => (
+                <SortableVM key={vm.id} vm={vm} onSelect={onSelectNode} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+    </div>
+  );
+}
+
 export function NodePropertiesPanel() {
   const {
     selectedNodeId,
@@ -101,7 +238,6 @@ export function NodePropertiesPanel() {
     updateHardware,
     removeHardware,
     autoAssignIP,
-    addVMNode,
   } = useBuilderStore();
 
   const [name, setName] = useState('');
@@ -272,10 +408,6 @@ export function NodePropertiesPanel() {
     }
   };
 
-  const handleAddVM = () => {
-    addVMNode(selectedNode.id, 'server', 'New VM');
-  };
-
   const tailscaleEnabled = useBuilderStore(s => s.tailscaleEnabled);
   const isRouter = selectedNode.type === 'router';
   const supportsVMs = canNodeHostVMs(selectedNode.type) && !isVM;
@@ -296,7 +428,6 @@ export function NodePropertiesPanel() {
 
   const cpuWarning = !isVM && totalCpu > 0 && usedCpu > totalCpu;
   const ramWarning = !isVM && totalRamMB > 0 && usedRam > totalRamMB;
-  const hasWarning = cpuWarning || ramWarning;
 
   return (
     <Card className="absolute top-8 right-8 w-80 shadow-none z-10 border-l animate-in slide-in-from-right-10 bg-card max-h-[calc(100vh-6rem)] flex flex-col">
@@ -436,7 +567,7 @@ export function NodePropertiesPanel() {
                   {tailscaleEnabled && isNetworked && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <Label htmlFor="tailscale-ip" className="flex items-center gap-1.5 text-blue-400">
+                        <Label htmlFor="tailscale-ip" className="flex items-center gap-1.5">
                           <Shield className="h-3 w-3" />
                           Tailscale IP
                         </Label>
@@ -452,10 +583,9 @@ export function NodePropertiesPanel() {
                         value={tailscaleIp}
                         onChange={e => setTailscaleIp(e.target.value)}
                         placeholder="100.100.1.1"
-                        className={cn(
-                          'font-mono text-blue-300 bg-blue-950/20 border-blue-500/30 focus-visible:ring-blue-500/50',
-                          errors.tailscaleIp ? 'border-destructive focus-visible:ring-destructive' : '',
-                        )}
+                        className={
+                          errors.tailscaleIp ? 'border-destructive focus-visible:ring-destructive' : ''
+                        }
                       />
                       <p className="text-[10px] text-muted-foreground">
                         Set manually or auto-assigned on Reassign IPs.
@@ -644,6 +774,21 @@ export function NodePropertiesPanel() {
         {/* Component Manager (GPUs, Disks, etc) — only for non-VM nodes */}
         {!isVM && <InternalComponentManager nodeId={selectedNode.id} />}
 
+        {/* Virtual Machines — right after internal components */}
+        {supportsVMs && (
+          <VirtualMachineSection
+            hostId={selectedNode.id}
+            childVMs={childVMs}
+            onSelectNode={id => selectNode(id)}
+            cpuWarning={cpuWarning}
+            ramWarning={ramWarning}
+            usedCpu={usedCpu}
+            totalCpu={totalCpu}
+            usedRam={usedRam}
+            totalRamMB={totalRamMB}
+          />
+        )}
+
         {/* Passthrough devices — read-only list for VM nodes */}
         {isVM && hostNode && (() => {
           const ptDevices = (hostNode.internal_components || []).filter(c => c.passthrough_to === selectedNode.id);
@@ -675,57 +820,6 @@ export function NodePropertiesPanel() {
 
         {/* Kubernetes enrollment */}
         {isComputeNode(selectedNode.type) && <K8sEnrollmentSection nodeId={selectedNode.id} />}
-
-        {/* Add VM button for host nodes */}
-        {supportsVMs && (
-          <div className="border-t pt-4">
-            {hasWarning && (
-              <div className="mb-4 p-2.5 bg-destructive/10 border border-destructive/20 rounded-md text-xs text-destructive flex items-start gap-2 animate-in fade-in">
-                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-semibold mb-0.5">Resource Warning</p>
-                  <p className="opacity-90 leading-relaxed">
-                    This node is over-provisioned.
-                    {cpuWarning && ` Used CPU: ${usedCpu}/${totalCpu}.`}
-                    {ramWarning &&
-                      ` Used RAM: ${Math.round(usedRam / 1024)}GB/${Math.round(totalRamMB / 1024)}GB.`}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {childVMs.length > 0 && (
-              <div className="mb-3 space-y-1">
-                <p className="text-[10px] uppercase tracking-wider text-violet-400 font-medium">
-                  Virtual Machines ({childVMs.length})
-                </p>
-                {childVMs.map(vm => (
-                  <div
-                    key={vm.id}
-                    className="flex items-center gap-2 p-2 rounded border border-violet-500/20 bg-violet-500/5 cursor-pointer hover:bg-violet-500/10 transition-colors"
-                    onClick={() => selectNode(vm.id)}
-                  >
-                    <Server className="h-3 w-3 text-violet-400 shrink-0" />
-                    <span className="text-xs font-medium truncate flex-1">{vm.name}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      {vm.ip || 'no IP'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full h-8 text-xs border-dashed border-violet-500/30 text-violet-400 hover:bg-violet-500/10"
-              onClick={handleAddVM}
-            >
-              <Plus className="h-3 w-3 mr-1.5" />
-              Add Virtual Machine
-            </Button>
-          </div>
-        )}
       </CardContent>
     </Card>
   );
