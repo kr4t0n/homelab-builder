@@ -13,8 +13,6 @@ import {
   Lock,
   Unlock,
   ChevronDown,
-  Shield,
-  Network,
   Server,
   GripVertical,
 } from 'lucide-react';
@@ -56,8 +54,7 @@ function K8sEnrollmentSection({ nodeId }: { nodeId: string }) {
 
   return (
     <div className="space-y-2 pt-4 border-t">
-      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-        <Network className="h-3 w-3 text-violet-400" />
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
         Kubernetes
       </h4>
 
@@ -567,8 +564,7 @@ export function NodePropertiesPanel() {
                   {tailscaleEnabled && isNetworked && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <Label htmlFor="tailscale-ip" className="flex items-center gap-1.5">
-                          <Shield className="h-3 w-3" />
+                        <Label htmlFor="tailscale-ip">
                           Tailscale IP
                         </Label>
                         {errors.tailscaleIp && (
