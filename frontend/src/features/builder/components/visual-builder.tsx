@@ -187,19 +187,34 @@ function Flow() {
   const [k8sManagerOpen, setK8sManagerOpen] = useState(false);
 
   const allEdges = useMemo(() => {
-    const virtual = hardwareNodes
-      .filter(n => n.parent_id)
-      .map(n => ({
-        id: `virtual-${n.id}`,
-        source: n.parent_id!,
-        sourceHandle: 'eth0',
-        target: n.id,
-        targetHandle: 'target-0',
-        type: 'virtual' as const,
-        data: {},
-        selectable: false,
-        deletable: false,
-      }));
+    const vmsByHost = new Map<string, typeof hardwareNodes>();
+    for (const n of hardwareNodes) {
+      if (!n.parent_id) continue;
+      const list = vmsByHost.get(n.parent_id);
+      if (list) list.push(n);
+      else vmsByHost.set(n.parent_id, [n]);
+    }
+
+    const virtual = [];
+    for (const [hostId, vms] of vmsByHost) {
+      const host = hardwareNodes.find(h => h.id === hostId);
+      const portCount = host && nodeHasDynamicPorts(host.type)
+        ? Math.max(1, getNodePortCount(host.type, host.details?.ports) - 1)
+        : 1;
+      for (let i = 0; i < vms.length; i++) {
+        virtual.push({
+          id: `virtual-${vms[i].id}`,
+          source: hostId,
+          sourceHandle: `eth${i % portCount}`,
+          target: vms[i].id,
+          targetHandle: 'target-0',
+          type: 'virtual' as const,
+          data: {},
+          selectable: false,
+          deletable: false,
+        });
+      }
+    }
     return [...edges, ...virtual];
   }, [edges, hardwareNodes]);
 
