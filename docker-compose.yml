@@ -1,16 +1,16 @@
 services:
   postgres:
     image: postgres:17
-    container_name: homelab-builder-db
+    container_name: orbit-db
     environment:
-      POSTGRES_USER: homelab
-      POSTGRES_PASSWORD: homelab_password
-      POSTGRES_DB: homelab_builder
+      POSTGRES_USER: orbit
+      POSTGRES_PASSWORD: orbit_password
+      POSTGRES_DB: orbit
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U homelab -d homelab_builder"]
+      test: ["CMD-SHELL", "pg_isready -U orbit -d orbit"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,7 +20,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: homelab-builder-backend
+    container_name: orbit-backend
     ports:
       - "8080:8080"
     environment:
@@ -28,26 +28,26 @@ services:
       # GIN_MODE: "release"
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_USER: homelab
-      DB_PASSWORD: homelab_password
-      DB_NAME: homelab_builder
+      DB_USER: orbit
+      DB_PASSWORD: orbit_password
+      DB_NAME: orbit
       DB_SSLMODE: disable
       DB_TYPE: postgres
       JWT_SECRET: ${JWT_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      IPAM_URL: http://hlbipam:8081
+      IPAM_URL: http://ipam:8081
     depends_on:
       postgres:
         condition: service_healthy
-      hlbipam:
+      ipam:
         condition: service_started
     restart: unless-stopped
 
-  hlbipam:
+  ipam:
     build:
-      context: ./hlbipam
+      context: ./ipam
       dockerfile: Dockerfile
-    container_name: homelab-builder-ipam
+    container_name: orbit-ipam
     environment:
       PORT: "8081"
     restart: unless-stopped
@@ -59,7 +59,7 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
         VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
-    container_name: homelab-builder-frontend
+    container_name: orbit-frontend
     ports:
       - "3000:80"
     depends_on:

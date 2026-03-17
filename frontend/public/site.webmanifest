@@ -1,6 +1,6 @@
 {
-  "name": "HLBuilder",
-  "short_name": "HLBuilder",
+  "name": "Orbit",
+  "short_name": "Orbit",
   "description": "Visually design your homelab network",
   "start_url": "/",
   "display": "standalone",

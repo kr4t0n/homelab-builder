@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 )
 
 func TestHardwareService_UpdateBuyURLs(t *testing.T) {

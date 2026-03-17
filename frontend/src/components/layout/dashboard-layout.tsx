@@ -24,7 +24,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
                 <Sidebar />
             </SheetContent>
         </Sheet>
-        <span className="ml-2 font-bold">HLBuilder</span>
+        <span className="ml-2 font-bold">Orbit</span>
       </div>
 
       {/* Main Content */}

@@ -55,7 +55,7 @@ export default function PrivacyPolicyPage() {
 
                     <section className="space-y-3">
                         <h2 className="text-2xl font-bold">7. Contact</h2>
-                        <p>If you have questions about this policy, reach out via our <a href="https://github.com/Butterski/homelab-builder" target="_blank" rel="noreferrer" className="text-primary hover:underline">GitHub repository</a>.</p>
+                        <p>If you have questions about this policy, reach out via our <a href="https://github.com/kr4t0n/orbit" target="_blank" rel="noreferrer" className="text-primary hover:underline">GitHub repository</a>.</p>
                     </section>
                 </div>
             </div>

@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -24,7 +24,7 @@ type AuthService struct {
 
 func NewAuthService(db *gorm.DB) *AuthService {
 	rawSecret := os.Getenv("JWT_SECRET")
-	defaultSecret := "homelab-builder-dev-secret-change-in-production"
+	defaultSecret := "orbit-dev-secret-change-in-production"
 
 	secret := rawSecret
 	if secret == "" {
@@ -241,7 +241,7 @@ func (s *AuthService) generateToken(user models.User) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Issuer:    "homelab-builder",
+			Issuer:    "orbit",
 		},
 	}
 

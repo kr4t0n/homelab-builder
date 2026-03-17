@@ -29,17 +29,17 @@ test: test-backend test-frontend
 # Requires: docker compose up (postgres container must be healthy).
 test-backend:
 	@echo "Building test runner image from builder stage..."
-	docker build --target builder -t homelab-builder-test-runner ./backend
+	docker build --target builder -t orbit-test-runner ./backend
 	@echo "Running backend tests against postgres..."
 	docker run --rm \
-		--network homelab-builder_default \
+		--network orbit_default \
 		-e DB_HOST=postgres \
 		-e DB_PORT=5432 \
-		-e DB_USER=homelab \
-		-e DB_PASSWORD=homelab_password \
+		-e DB_USER=orbit \
+		-e DB_PASSWORD=orbit_password \
 		-e DB_SSLMODE=disable \
-		-e TEST_DB_NAME=homelab_builder_test \
-		homelab-builder-test-runner \
+		-e TEST_DB_NAME=orbit_test \
+		orbit-test-runner \
 		go test ./internal/services/... -v -count=1
 
 # Frontend Vitest tests run locally. buildApi is fully mocked — no backend needed.

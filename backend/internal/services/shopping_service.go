@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -222,7 +222,7 @@ func (s *ShoppingListService) enrichWithHardwareDB(items []ShoppingListItem) {
 					// NOTE: Affiliate/Reflink Proxy Concept
 					// This was a concept we wanted to include as a community-driven initiative.
 					// All money generated from these affiliate links would go directly into
-					// funding the hosting of HLBuilder and providing resources/giveaways back
+					// funding the hosting of Orbit and providing resources/giveaways back
 					// to the community. If there are any extra percentages leftover, the rest
 					// would go to the developers.
 					proxyURL := fmt.Sprintf("https://affiliate.hlb.mock/redirect?ref=hlb&dest=%s&tag=%s", url.QueryEscape(link.URL), url.QueryEscape(comp.AffiliateTag))

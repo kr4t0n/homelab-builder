@@ -26,12 +26,12 @@ func Load() *Config {
 		ServerPort:   getEnv("SERVER_PORT", "8080"),
 		DBHost:       getEnv("DB_HOST", "localhost"),
 		DBPort:       getEnv("DB_PORT", "5432"),
-		DBUser:       getEnv("DB_USER", "homelab"),
-		DBPassword:   getEnv("DB_PASSWORD", "homelab_password"),
-		DBName:       getEnv("DB_NAME", "homelab_builder"),
+		DBUser:       getEnv("DB_USER", "orbit"),
+		DBPassword:   getEnv("DB_PASSWORD", "orbit_password"),
+		DBName:       getEnv("DB_NAME", "orbit"),
 		DBSSLMode:    getEnv("DB_SSLMODE", "disable"),
 		DBType:       getEnv("DB_TYPE", "sqlite"), // Default to sqlite
-		DBFile:       getEnv("DB_FILE", "homelab.db"),
+		DBFile:       getEnv("DB_FILE", "orbit.db"),
 		AuthDisabled: isAuthDisabled,
 	}
 }

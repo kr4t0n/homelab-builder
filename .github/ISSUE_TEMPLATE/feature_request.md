@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for HLBuilder
+about: Suggest an idea for Orbit
 title: "[FEAT] "
 labels: enhancement
 assignees: ''

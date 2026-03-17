@@ -15,12 +15,12 @@ export default function TermsOfServicePage() {
                 <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6">
                     <section className="space-y-3">
                         <h2 className="text-2xl font-bold">1. Acceptance</h2>
-                        <p>By using HLBuilder ("the Service"), you agree to these terms. If you do not agree, please do not use the Service.</p>
+                        <p>By using Orbit ("the Service"), you agree to these terms. If you do not agree, please do not use the Service.</p>
                     </section>
 
                     <section className="space-y-3">
                         <h2 className="text-2xl font-bold">2. Description of Service</h2>
-                        <p>HLBuilder is a free, web-based tool for designing homelab network topologies, generating IP assignments, and browsing hardware and service catalogs. The Service is currently in <strong>open beta</strong>.</p>
+                        <p>Orbit is a free, web-based tool for designing homelab network topologies, generating IP assignments, and browsing hardware and service catalogs. The Service is currently in <strong>open beta</strong>.</p>
                     </section>
 
                     <section className="space-y-3">
@@ -51,7 +51,7 @@ export default function TermsOfServicePage() {
 
                     <section className="space-y-3">
                         <h2 className="text-2xl font-bold">7. Limitation of Liability</h2>
-                        <p>To the fullest extent permitted by law, HLBuilder and its creator shall not be liable for any indirect, incidental, or consequential damages arising from the use of the Service.</p>
+                        <p>To the fullest extent permitted by law, Orbit and its creator shall not be liable for any indirect, incidental, or consequential damages arising from the use of the Service.</p>
                     </section>
 
                     <section className="space-y-3">
@@ -61,7 +61,7 @@ export default function TermsOfServicePage() {
 
                     <section className="space-y-3">
                         <h2 className="text-2xl font-bold">9. Contact</h2>
-                        <p>Questions? Open an issue on our <a href="https://github.com/Butterski/homelab-builder" target="_blank" rel="noreferrer" className="text-primary hover:underline">GitHub repository</a>.</p>
+                        <p>Questions? Open an issue on our <a href="https://github.com/kr4t0n/orbit" target="_blank" rel="noreferrer" className="text-primary hover:underline">GitHub repository</a>.</p>
                     </section>
                 </div>
             </div>

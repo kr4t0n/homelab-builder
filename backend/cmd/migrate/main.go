@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/Butterski/homelab-builder/backend/internal/config"
-	"github.com/Butterski/homelab-builder/backend/internal/models"
-	"github.com/Butterski/homelab-builder/backend/pkg/database"
+	"github.com/kr4t0n/orbit/backend/internal/config"
+	"github.com/kr4t0n/orbit/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/pkg/database"
 )
 
 func main() {

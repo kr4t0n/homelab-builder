@@ -1,4 +1,4 @@
-module github.com/Butterski/homelab-builder/backend
+module github.com/kr4t0n/orbit/backend
 
 go 1.24.5
 

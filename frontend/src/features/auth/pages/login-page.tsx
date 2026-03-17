@@ -13,7 +13,7 @@ export default function LoginPage() {
                 <AnimatedLogo className="h-32 w-auto text-primary drop-shadow-[0_10px_15px_rgba(0,0,0,0.1)] dark:drop-shadow-[0_10px_15px_rgba(255,255,255,0.05)]" />
             </div>
             
-            <h1 className="text-4xl font-bold tracking-tight mb-3">HLBuilder</h1>
+            <h1 className="text-4xl font-bold tracking-tight mb-3">Orbit</h1>
             <p className="text-xl text-muted-foreground max-w-md mb-8">
                 Design, plan, and generate configuration for your dream homelab in minutes.
             </p>
@@ -52,7 +52,7 @@ export default function LoginPage() {
             </div>
 
             <div className="mt-12 flex items-center justify-center gap-5">
-                <a href="https://github.com/Butterski/homelab-builder" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="Project Site">
+                <a href="https://github.com/kr4t0n/orbit" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="Project Site">
                     <Globe className="h-4 w-4" />
                 </a>
                 <a href="https://github.com/Butterski" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="GitHub">

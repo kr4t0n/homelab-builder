@@ -3,7 +3,7 @@ package core
 import (
 	"net"
 
-	"github.com/Butterski/hlbipam/internal/utils"
+	"github.com/kr4t0n/orbit/ipam/internal/utils"
 )
 
 type SubnetAllocator struct {

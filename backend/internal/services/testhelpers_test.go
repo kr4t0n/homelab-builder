@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -35,13 +35,13 @@ func TestMain(m *testing.M) {
 
 // connectTestDB opens a connection to the test PostgreSQL database.
 // It reads the same env vars the backend uses (set by docker-compose) but
-// overrides DB_NAME with TEST_DB_NAME (default: homelab_builder_test).
+// overrides DB_NAME with TEST_DB_NAME (default: orbit_test).
 func connectTestDB() (*gorm.DB, error) {
 	host := envOr("DB_HOST", "postgres")
 	port := envOr("DB_PORT", "5432")
-	user := envOr("DB_USER", "homelab")
-	pass := envOr("DB_PASSWORD", "homelab_password")
-	testDBName := envOr("TEST_DB_NAME", "homelab_builder_test")
+	user := envOr("DB_USER", "orbit")
+	pass := envOr("DB_PASSWORD", "orbit_password")
+	testDBName := envOr("TEST_DB_NAME", "orbit_test")
 	sslMode := envOr("DB_SSLMODE", "disable")
 
 	// Connect to the postgres admin DB to run CREATE DATABASE (non-transactional).

@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/Butterski/hlbipam/internal/core"
-	"github.com/Butterski/hlbipam/internal/models"
+	"github.com/kr4t0n/orbit/ipam/internal/core"
+	"github.com/kr4t0n/orbit/ipam/internal/models"
 )
 
 // RegisterRoutes wires the IPAM endpoints onto the provided mux.

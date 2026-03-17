@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
@@ -125,7 +125,7 @@ func TestAuthService_ValidateToken(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)), // Expired 1 hr ago
 			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
-			Issuer:    "homelab-builder",
+			Issuer:    "orbit",
 		},
 	}
 	expiredToken, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, expiredClaims).SignedString([]byte("test-secret-key-12345"))

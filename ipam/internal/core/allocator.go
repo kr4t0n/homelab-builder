@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/Butterski/hlbipam/internal/models"
-	"github.com/Butterski/hlbipam/internal/utils"
+	"github.com/kr4t0n/orbit/ipam/internal/models"
+	"github.com/kr4t0n/orbit/ipam/internal/utils"
 )
 
 func mergeZones(custom map[string]models.ZoneOverride) map[string]ZoneConfig {

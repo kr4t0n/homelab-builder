@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/Butterski/hlbipam/internal/api"
+	"github.com/kr4t0n/orbit/ipam/internal/api"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 	// Wrap with CORS headers for direct frontend calls (Sprint 7).
 	handler := corsMiddleware(mux)
 
-	log.Printf("hlbIPAM starting on :%s", port)
+	log.Printf("IPAM starting on :%s", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("server error: %v", err)
 	}

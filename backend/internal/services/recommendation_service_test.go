@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
-	"github.com/Butterski/homelab-builder/backend/internal/services"
+	"github.com/kr4t0n/orbit/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/services"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,10 +22,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	}
 	dbName := os.Getenv("TEST_DB_NAME")
 	if dbName == "" {
-		dbName = "homelab_builder_test"
+		dbName = "orbit_test"
 	}
 
-	dsn := fmt.Sprintf("host=%s user=homelab password=homelab_password dbname=%s port=5432 sslmode=disable", host, dbName)
+	dsn := fmt.Sprintf("host=%s user=orbit password=orbit_password dbname=%s port=5432 sslmode=disable", host, dbName)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 

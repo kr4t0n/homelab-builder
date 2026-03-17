@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Butterski/homelab-builder/backend/internal/services"
+	"github.com/kr4t0n/orbit/backend/internal/services"
 	"github.com/gin-gonic/gin"
 )
 

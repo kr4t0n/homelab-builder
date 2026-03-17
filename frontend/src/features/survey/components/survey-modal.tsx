@@ -83,7 +83,7 @@ export function SurveyModal({ onClose }: SurveyModalProps) { // BETA_SURVEY
                     {step === "intro" && (
                         <div className="space-y-4 text-center py-4">
                             <div className="text-4xl">🚀</div>
-                            <h2 className="text-xl font-bold">Thanks for testing HLBuilder!</h2>
+                            <h2 className="text-xl font-bold">Thanks for testing Orbit!</h2>
                             <p className="text-sm text-muted-foreground">This quick survey helps us understand what you need. It takes about 2 minutes and your answers directly shape the roadmap.</p>
                             <Button className="w-full" onClick={() => setStep("usage")}>Start Survey</Button>
                         </div>
@@ -92,7 +92,7 @@ export function SurveyModal({ onClose }: SurveyModalProps) { // BETA_SURVEY
                     {/* USAGE */}
                     {step === "usage" && (
                         <div className="space-y-4">
-                            <h3 className="font-semibold text-lg">How would you rate HLBuilder?</h3>
+                            <h3 className="font-semibold text-lg">How would you rate Orbit?</h3>
                             <div className="flex gap-2 justify-center">
                                 {[1, 2, 3, 4, 5].map(n => (
                                     <button key={n} onClick={() => set("rating", n)} className="transition-transform hover:scale-110">
@@ -101,7 +101,7 @@ export function SurveyModal({ onClose }: SurveyModalProps) { // BETA_SURVEY
                                 ))}
                             </div>
 
-                            <h3 className="font-semibold pt-2">Are you planning to use HLBuilder?</h3>
+                            <h3 className="font-semibold pt-2">Are you planning to use Orbit?</h3>
                             <div className="grid grid-cols-3 gap-2">
                                 {[["yes", "Yes 🙌"], ["maybe", "Maybe 🤔"], ["no", "Not really 😬"]].map(([v, l]) => (
                                     <button key={v} onClick={() => set("will_use_app", v)}
@@ -127,7 +127,7 @@ export function SurveyModal({ onClose }: SurveyModalProps) { // BETA_SURVEY
                     {/* FEATURES */}
                     {step === "features" && (
                         <div className="space-y-4">
-                            <h3 className="font-semibold text-lg">What would you like to see in HLBuilder?</h3>
+                            <h3 className="font-semibold text-lg">What would you like to see in Orbit?</h3>
                             <textarea value={form.feature_wishlist} onChange={e => set("feature_wishlist", e.target.value)}
                                 placeholder="More node types, monitoring integration, automatic config deployment..."
                                 rows={4}
@@ -143,7 +143,7 @@ export function SurveyModal({ onClose }: SurveyModalProps) { // BETA_SURVEY
                     {step === "opensource" && (
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg">Are you interested in an open source model?</h3>
-                            <p className="text-sm text-muted-foreground">We're exploring fully open-sourcing HLBuilder for self-hosting and community contributions.</p>
+                            <p className="text-sm text-muted-foreground">We're exploring fully open-sourcing Orbit for self-hosting and community contributions.</p>
                             <div className="grid grid-cols-2 gap-2">
                                 {[["yes", "Yes! 🎉"], ["no", "Not really"]].map(([v, l]) => (
                                     <button key={v} onClick={() => set("open_source_interest", v)}
@@ -226,7 +226,7 @@ export function SurveyModal({ onClose }: SurveyModalProps) { // BETA_SURVEY
                     {step === "company" && (
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg">Business inquiry <span className="text-muted-foreground text-sm font-normal">(optional)</span></h3>
-                            <p className="text-sm text-muted-foreground">Are you a company interested in implementing something like HLBuilder internally?</p>
+                            <p className="text-sm text-muted-foreground">Are you a company interested in implementing something like Orbit internally?</p>
                             <div className="grid grid-cols-2 gap-2">
                                 <button onClick={() => set("is_company", true)}
                                     className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${form.is_company ? "bg-primary text-primary-foreground border-primary" : "hover:bg-accent"}`}>
@@ -260,7 +260,7 @@ export function SurveyModal({ onClose }: SurveyModalProps) { // BETA_SURVEY
                         <div className="text-center py-6 space-y-5">
                             <div className="text-5xl">🎉</div>
                             <h2 className="text-xl font-bold">Thank you for the feedback!</h2>
-                            <p className="text-sm text-muted-foreground">Your responses help shape the future of HLBuilder. Seriously — this means a lot. Come say hi:</p>
+                            <p className="text-sm text-muted-foreground">Your responses help shape the future of Orbit. Seriously — this means a lot. Come say hi:</p>
                             <div className="flex flex-col gap-2 items-center">
                                 <a href="https://mkuch.pl" target="_blank" rel="noreferrer"
                                     className="flex items-center gap-2 text-sm text-primary hover:underline">

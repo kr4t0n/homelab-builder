@@ -1,4 +1,4 @@
-# HLBuilder — AI Agent Reference
+# Orbit — AI Agent Reference
 
 This document is the canonical reference for AI agents working on this codebase.
 It covers project architecture, testing infrastructure, known pitfalls, and the decisions behind them.
@@ -19,7 +19,7 @@ Remember - I don't want migrations scripts or Legacy things support. If somethin
 1. [Project Overview](#project-overview)
 2. [Monorepo Layout](#monorepo-layout)
 3. [Backend Architecture](#backend-architecture)
-4. [HLBIPAM Microservice](#hlbipam-microservice)
+4. [IPAM Microservice](#ipam-microservice)
 5. [Frontend Architecture](#frontend-architecture)
 6. [Data Model](#data-model)
 7. [IP Assignment Algorithm](#ip-assignment-algorithm)
@@ -33,20 +33,20 @@ Remember - I don't want migrations scripts or Legacy things support. If somethin
 
 ## Project Overview
 
-**HLBuilder** is a full-stack web app that lets users visually design their home lab network — placing hardware nodes (routers, switches, servers, NAS, etc.), wiring them, and automatically receiving IP address assignments and service recommendations.
+**Orbit** is a full-stack web app that lets users visually design their home lab network — placing hardware nodes (routers, switches, servers, NAS, etc.), wiring them, and automatically receiving IP address assignments and service recommendations.
 
 - **Backend**: Go 1.24.5, Gin, GORM v1.31.1, PostgreSQL 17
-- **HLBIPAM**: Standalone Go microservice for IP Address Management
+- **IPAM**: Standalone Go microservice for IP Address Management
 - **Frontend**: React 18, TypeScript, Vite, ReactFlow, Zustand, Vitest
-- **Infrastructure**: Docker Compose (postgres + backend + hlbipam + frontend)
+- **Infrastructure**: Docker Compose (postgres + backend + ipam + frontend)
 
 ---
 
 ## Monorepo Layout
 
 ```
-homelab-builder/
-├── docker-compose.yml          # postgres + backend + hlbipam + frontend services
+orbit/
+├── docker-compose.yml          # postgres + backend + ipam + frontend services
 ├── docker-compose.test.yml     # test-specific compose overrides
 ├── Makefile                    # dev and test commands
 ├── AGENTS.md                   # this file
@@ -65,7 +65,7 @@ homelab-builder/
 │   ├── go.mod
 │   ├── Dockerfile              # multi-stage: builder → final scratch image
 │   └── Dockerfile.test         # test runner image
-├── hlbipam/                    # standalone IPAM microservice
+├── ipam/                    # standalone IPAM microservice
 │   ├── cmd/server/             # entrypoint
 │   ├── internal/
 │   │   ├── api/                # HTTP handlers
@@ -177,14 +177,14 @@ When a build is saved (`PUT /builds/:id`), `BuildService.Update` calls `SyncData
 
 ---
 
-## HLBIPAM Microservice
+## IPAM Microservice
 
-A standalone Go microservice (`hlbipam/`) responsible for IP Address Management. Runs as a separate Docker container on port 8081.
+A standalone Go microservice (`ipam/`) responsible for IP Address Management. Runs as a separate Docker container on port 8081.
 
 ### Structure
 
 ```
-hlbipam/
+ipam/
 ├── cmd/server/          # HTTP server entrypoint
 ├── internal/
 │   ├── api/             # HTTP route handlers
@@ -198,7 +198,7 @@ hlbipam/
 └── test_ipam.go         # Integration test script
 ```
 
-The backend communicates with HLBIPAM via `IPAM_URL` (default: `http://hlbipam:8081`).
+The backend communicates with IPAM via `IPAM_URL` (default: `http://ipam:8081`).
 
 ---
 
@@ -300,8 +300,8 @@ Non-network types (`disk`, `gpu`, `hba`, `pcie`, `pdu`, `ups`) are never assigne
 
 ### Tailscale VPN Support
 
-Tailscale IPs are **manually entered** by the user — they are not auto-allocated by hlbIPAM
-or any other service. hlbIPAM only handles LAN IP allocation.
+Tailscale IPs are **manually entered** by the user — they are not auto-allocated by IPAM
+or any other service. IPAM only handles LAN IP allocation.
 
 - `Node.TailscaleIP` and `VirtualMachine.TailscaleIP` store user-provided Tailscale addresses
 - The frontend builder has a **Tailscale** toggle button and a **Mesh Overlay View** that draws
@@ -312,7 +312,7 @@ or any other service. hlbIPAM only handles LAN IP allocation.
 ### Kubernetes Cluster Support
 
 Kubernetes clusters are a **frontend-only concept** — the backend stores them as opaque JSON
-in `Build.Settings` and never parses, validates, or acts on them. hlbIPAM has no awareness
+in `Build.Settings` and never parses, validates, or acts on them. IPAM has no awareness
 of Kubernetes.
 
 #### Data Model
@@ -443,7 +443,7 @@ func TestSomething(t *testing.T) {
 
 ```go
 testTx(t)                          // *gorm.DB transaction, auto-rolled back
-connectTestDB()                    // connects to homelab_builder_test PG DB
+connectTestDB()                    // connects to orbit_test PG DB
 migrateTestDB(db)                  // CREATE EXTENSION uuid-ossp + AutoMigrate
 ```
 
@@ -471,13 +471,13 @@ hasPrefix(s, prefix string) bool
 | `internal/services/shopping_service_test.go` | `services` | Shopping list tests |
 | `internal/services/steering_service_test.go` | `services` | Steering rules tests |
 | `internal/handlers/health_test.go` | `handlers` | Health endpoint test |
-| `hlbipam/internal/core/allocator_test.go` | `core` | IPAM allocator tests |
-| `hlbipam/internal/core/validator_test.go` | `core` | IPAM validator tests |
+| `ipam/internal/core/allocator_test.go` | `core` | IPAM allocator tests |
+| `ipam/internal/core/validator_test.go` | `core` | IPAM validator tests |
 | `frontend/src/features/builder/store/builder-store.test.ts` | — | Vitest tests |
 
 ### Test Database
 
-- Name: `homelab_builder_test` (separate from the production `homelab_builder`)
+- Name: `orbit_test` (separate from the production `orbit`)
 - Created automatically by `TestMain` if it does not exist.
 - Migrated via GORM `AutoMigrate` (not the raw SQL migration files in `migrations/`).
 
@@ -505,8 +505,8 @@ make test-backend
 ```
 
 Internally this:
-1. Builds `backend/Dockerfile` up to the `builder` stage → image `homelab-builder-test-runner`
-2. Runs a temporary container on `homelab-builder_default` network (same network as the `postgres` service from docker-compose)
+1. Builds `backend/Dockerfile` up to the `builder` stage → image `orbit-test-runner`
+2. Runs a temporary container on `orbit_default` network (same network as the `postgres` service from docker-compose)
 3. Executes `go test ./internal/services/... -v -count=1`
 
 ### Frontend only
@@ -570,7 +570,7 @@ cd frontend && npm run test:watch
 
 ### 7. Docker network name
 
-The docker-compose default network is `homelab-builder_default` (derived from the project folder name). The `test-backend` make target hardcodes this. If you rename the project folder, update the Makefile.
+The docker-compose default network is `orbit_default` (derived from the project folder name). The `test-backend` make target hardcodes this. If you rename the project folder, update the Makefile.
 
 ### 8. uuid-ossp extension
 
@@ -605,18 +605,18 @@ These bugs were diagnosed and fixed; tests guard against regression.
 |---|---|---|
 | `DB_HOST` | `postgres` | PostgreSQL hostname |
 | `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_USER` | `homelab` | PostgreSQL user |
-| `DB_PASSWORD` | `homelab_password` | PostgreSQL password |
-| `DB_NAME` | `homelab_builder` | Production database name |
+| `DB_USER` | `orbit` | PostgreSQL user |
+| `DB_PASSWORD` | `orbit_password` | PostgreSQL password |
+| `DB_NAME` | `orbit` | Production database name |
 | `DB_SSLMODE` | `disable` | PostgreSQL SSL mode |
 | `DB_TYPE` | `postgres` | Database driver type |
-| `TEST_DB_NAME` | `homelab_builder_test` | Test database name (used by TestMain) |
+| `TEST_DB_NAME` | `orbit_test` | Test database name (used by TestMain) |
 | `JWT_SECRET` | — | Secret for signing JWTs |
 | `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `SERVER_PORT` | `8080` | HTTP listen port |
-| `IPAM_URL` | `http://hlbipam:8081` | HLBIPAM microservice URL |
+| `IPAM_URL` | `http://ipam:8081` | IPAM microservice URL |
 
-### HLBIPAM
+### IPAM
 
 | Variable | Default | Description |
 |---|---|---|

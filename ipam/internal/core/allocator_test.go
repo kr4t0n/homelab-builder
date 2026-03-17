@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Butterski/hlbipam/internal/models"
+	"github.com/kr4t0n/orbit/ipam/internal/models"
 )
 
 func TestAllocate_SingleRouterLinearTopology(t *testing.T) {

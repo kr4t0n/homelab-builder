@@ -23,7 +23,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="sidebar-header">
           <NavLink to="/" className="brand-logo">
             <span className="logo-icon">🏗️</span>
-            <span className="logo-text">HLBuilder</span>
+            <span className="logo-text">Orbit</span>
           </NavLink>
         </div>
         
@@ -95,5 +95,5 @@ function getPageTitle(path: string): string {
   if (path === '/shopping-list') return 'Shopping List';
   if (path === '/checklist') return 'Setup Guide';
   if (path.startsWith('/admin')) return 'Admin Panel';
-  return 'HLBuilder';
+  return 'Orbit';
 }

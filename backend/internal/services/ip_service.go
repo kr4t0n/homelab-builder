@@ -13,12 +13,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-// IPService proxies IP calculation requests to the hlbIPAM microservice
+// IPService proxies IP calculation requests to the IPAM microservice
 // and persists results back into the database.
 type IPService struct {
 	db      *gorm.DB
@@ -38,7 +38,7 @@ func NewIPService(db *gorm.DB) *IPService {
 	}
 }
 
-// ── hlbIPAM request/response DTOs ──────────────────────────────────────────
+// ── IPAM request/response DTOs ──────────────────────────────────────────
 
 type ipamRouter struct {
 	ID          string `json:"id"`
@@ -97,7 +97,7 @@ var nonNetworkTypes = map[string]bool{
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 // CalculateNetwork loads the build's topology from the DB, sends it to
-// hlbIPAM for allocation, and writes the assigned IPs back.
+// IPAM for allocation, and writes the assigned IPs back.
 func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Load all nodes
@@ -169,7 +169,7 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			})
 		}
 
-		// 3. Build hlbIPAM request — convert child nodes into ipamVM structs
+		// 3. Build IPAM request — convert child nodes into ipamVM structs
 		req := ipamRequest{
 			Routers: make([]ipamRouter, 0),
 			Nodes:   make([]ipamNode, 0, len(nodes)),
@@ -230,13 +230,13 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 			})
 		}
 
-		// 4. Call hlbIPAM
+		// 4. Call IPAM
 		result, err := s.callIPAM(req)
 		if err != nil {
-			return fmt.Errorf("hlbIPAM call failed: %w", err)
+			return fmt.Errorf("IPAM call failed: %w", err)
 		}
 
-		// 5. Build a lookup from hlbIPAM results
+		// 5. Build a lookup from IPAM results
 		ipByID := make(map[string]string, len(result.Nodes))
 		vmIPByID := make(map[string]string)
 		for _, nr := range result.Nodes {
@@ -288,7 +288,7 @@ func (s *IPService) CalculateNetwork(buildID uuid.UUID) error {
 	})
 }
 
-// callIPAM sends a topology to the hlbIPAM /allocate endpoint and returns the result.
+// callIPAM sends a topology to the IPAM /allocate endpoint and returns the result.
 func (s *IPService) callIPAM(req ipamRequest) (*ipamResponse, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
@@ -296,7 +296,7 @@ func (s *IPService) callIPAM(req ipamRequest) (*ipamResponse, error) {
 	}
 
 	url := s.ipamURL + "/api/v1/allocate"
-	log.Printf("Calling hlbIPAM at %s (%d routers, %d nodes)", url, len(req.Routers), len(req.Nodes))
+	log.Printf("Calling IPAM at %s (%d routers, %d nodes)", url, len(req.Routers), len(req.Nodes))
 
 	resp, err := s.client.Post(url, "application/json", bytes.NewReader(body))
 	if err != nil {
@@ -306,7 +306,7 @@ func (s *IPService) callIPAM(req ipamRequest) (*ipamResponse, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return nil, fmt.Errorf("hlbIPAM returned %d: %s", resp.StatusCode, string(errBody))
+		return nil, fmt.Errorf("IPAM returned %d: %s", resp.StatusCode, string(errBody))
 	}
 
 	var result ipamResponse
@@ -317,7 +317,7 @@ func (s *IPService) callIPAM(req ipamRequest) (*ipamResponse, error) {
 	return &result, nil
 }
 
-// ValidateNetwork sends the current topology to the hlbIPAM validate endpoint
+// ValidateNetwork sends the current topology to the IPAM validate endpoint
 // and returns the raw validation response directly to the caller.
 func (s *IPService) ValidateNetwork(buildID uuid.UUID) (json.RawMessage, error) {
 	var allNodes []models.Node
@@ -395,7 +395,7 @@ func (s *IPService) ValidateNetwork(buildID uuid.UUID) (json.RawMessage, error) 
 
 	resp, err := s.client.Post(s.ipamURL+"/api/v1/validate", "application/json", bytes.NewReader(payload))
 	if err != nil {
-		return nil, fmt.Errorf("failed to call hlbIPAM validate: %w", err)
+		return nil, fmt.Errorf("failed to call IPAM validate: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -412,9 +412,9 @@ func (s *IPService) ValidateNetwork(buildID uuid.UUID) (json.RawMessage, error) 
 	return json.RawMessage(rawResp), nil
 }
 
-// FallbackCalculateNetwork is kept as a safety net — if hlbIPAM is unreachable,
+// FallbackCalculateNetwork is kept as a safety net — if IPAM is unreachable,
 // the system can fall back to this inline implementation.
 // Currently unused; wire it in if you need offline resilience.
 func (s *IPService) FallbackCalculateNetwork(buildID uuid.UUID) error {
-	return errors.New("hlbIPAM service unavailable and no fallback configured")
+	return errors.New("IPAM service unavailable and no fallback configured")
 }

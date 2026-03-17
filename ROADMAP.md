@@ -1,6 +1,6 @@
-# HLBuilder Roadmap & Ideas
+# Orbit Roadmap & Ideas
 
-This document outlines the original Minimum Viable Product (MVP) goals and future ideas for HLBuilder, translated from the initial planning phases.
+This document outlines the original Minimum Viable Product (MVP) goals and future ideas for Orbit, translated from the initial planning phases.
 
 ## 1. Fast Start & Easy Onboarding
 Users may be overwhelmed by the number of services and hardware components.
@@ -28,7 +28,7 @@ Help users verify their designs before they buy hardware.
 - Build an admin UI to manage retailers, priorities, and affiliate mappings globally.
 
 ## 6. IPAM as a Standalone Microservice
-(Currently Implemented as `hlbipam`)
+(Currently Implemented as `ipam`)
 We separated the automated IP assignment logic into a standalone, stateless Go REST service. This makes the logic faster, easier to test, and enables future potential as a standalone open-source tool.
 - Supports graph-based BFS topology resolution, shared subnets, and contiguous DHCP-safe packing.
 

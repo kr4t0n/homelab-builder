@@ -7,23 +7,23 @@ version: '3.8'
 services:
   test-postgres:
     image: postgres:15
-    container_name: homelab-builder-test-db
+    container_name: orbit-test-db
     environment:
-      POSTGRES_USER: homelab
-      POSTGRES_PASSWORD: homelab_password
+      POSTGRES_USER: orbit
+      POSTGRES_PASSWORD: orbit_password
       POSTGRES_DB: postgres
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U homelab -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U orbit -d postgres"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  # hlbIPAM running instance for backend integration tests
-  hlbipam:
+  # IPAM running instance for backend integration tests
+  ipam:
     build:
-      context: ./hlbipam
+      context: ./ipam
       dockerfile: Dockerfile
-    container_name: homelab-builder-test-ipam
+    container_name: orbit-test-ipam
     environment:
       PORT: "8081"
     healthcheck:
@@ -32,23 +32,23 @@ services:
       timeout: 2s
       retries: 10
 
-  # Backend tests (requires postgres + hlbipam)
+  # Backend tests (requires postgres + ipam)
   backend-test:
     build:
       context: ./backend
       dockerfile: Dockerfile.test
-    container_name: homelab-builder-backend-test
+    container_name: orbit-backend-test
     environment:
       DB_TYPE: postgres
       DB_HOST: test-postgres
       DB_PORT: "5432"
-      DB_USER: homelab
-      DB_PASSWORD: homelab_password
+      DB_USER: orbit
+      DB_PASSWORD: orbit_password
       DB_SSLMODE: disable
-      TEST_DB_NAME: homelab_builder_test
-      IPAM_URL: http://hlbipam:8081
+      TEST_DB_NAME: orbit_test
+      IPAM_URL: http://ipam:8081
     depends_on:
       test-postgres:
         condition: service_healthy
-      hlbipam:
+      ipam:
         condition: service_healthy

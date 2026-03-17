@@ -1,4 +1,4 @@
-# Contributing to HLBuilder
+# Contributing to Orbit
 
 First, thanks for taking the time to contribute!
 
@@ -79,7 +79,7 @@ Every PR automatically runs the following GitHub Actions checks — **all must p
 | Check | What it runs |
 |-------|-------------|
 | **Frontend Tests** | `npm test` (Vitest) in `frontend/` |
-| **hlbIPAM Tests** | `go test ./...` in `hlbipam/` |
+| **IPAM Tests** | `go test ./...` in `ipam/` |
 | **Backend Tests** | Docker Compose integration tests against PostgreSQL |
 | **Security Analysis** | Gosec (Go) + npm audit (frontend) |
 
@@ -87,7 +87,7 @@ A summary gate job (**"All Tests Pass"**) aggregates the results — branch prot
 
 ## Code of Conduct
 
-Help us keep HLBuilder open and inclusive. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+Help us keep Orbit open and inclusive. Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ### Additional Terms (pursuant to section 7)
 

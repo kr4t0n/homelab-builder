@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Butterski/homelab-builder/backend/internal/config"
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/config"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

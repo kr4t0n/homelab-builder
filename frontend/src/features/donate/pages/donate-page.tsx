@@ -11,9 +11,9 @@ export default function DonatePage() {
                     <div className="inline-flex items-center justify-center p-3 bg-pink-500/10 text-pink-500 rounded-full mb-2">
                         <Heart className="h-8 w-8" />
                     </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight">Support HLBuilder</h1>
+                    <h1 className="text-4xl font-extrabold tracking-tight">Support Orbit</h1>
                     <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                        Love HLBuilder? Consider supporting its development - every bit helps keep the project alive and growing.
+                        Love Orbit? Consider supporting its development - every bit helps keep the project alive and growing.
                     </p>
                 </div>
 
@@ -24,7 +24,7 @@ export default function DonatePage() {
                         and I pour my evenings and weekends into coding, AI, and homelabbing - because that's what I genuinely love.
                     </p>
                     <p>
-                        <strong>HLBuilder started as a passion project</strong> - a tool I built because I couldn't find anything 
+                        <strong>Orbit started as a passion project</strong> - a tool I built because I couldn't find anything 
                         that fit the way homelabbers actually think. It's grown far beyond what I ever expected, thanks to you.
                     </p>
                     <p>
@@ -47,10 +47,10 @@ export default function DonatePage() {
                     
                     <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl space-y-2">
                         <p className="font-semibold text-primary m-0">
-                            Here's my promise: HLBuilder will stay free and open to everyone, no paywalls or exclusive features. Your support just helps me keep the lights on and the updates coming.
+                            Here's my promise: Orbit will stay free and open to everyone, no paywalls or exclusive features. Your support just helps me keep the lights on and the updates coming.
                         </p>
                         <p className="text-sm text-foreground/80 m-0">
-                            I'm also available for consulting or custom implementations - if your team or business needs HLBuilder internally, reach out!
+                            I'm also available for consulting or custom implementations - if your team or business needs Orbit internally, reach out!
                         </p>
                     </div>
                     

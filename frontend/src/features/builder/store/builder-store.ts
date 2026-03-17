@@ -909,7 +909,7 @@ export const useBuilderStore = create<BuilderState>()(
       totalStorage: () => 0,
     }),
     {
-      name: 'homelab-builder-storage',
+      name: 'orbit-storage',
       partialize: state => ({
         hardwareNodes: state.hardwareNodes,
         nodes: state.nodes,

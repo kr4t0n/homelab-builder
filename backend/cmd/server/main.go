@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Butterski/homelab-builder/backend/internal/config"
-	"github.com/Butterski/homelab-builder/backend/internal/handlers"
-	"github.com/Butterski/homelab-builder/backend/internal/middleware"
-	"github.com/Butterski/homelab-builder/backend/internal/services"
-	"github.com/Butterski/homelab-builder/backend/pkg/database"
+	"github.com/kr4t0n/orbit/backend/internal/config"
+	"github.com/kr4t0n/orbit/backend/internal/handlers"
+	"github.com/kr4t0n/orbit/backend/internal/middleware"
+	"github.com/kr4t0n/orbit/backend/internal/services"
+	"github.com/kr4t0n/orbit/backend/pkg/database"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 func main() {
-	log.Println("Starting HLBuilder Backend...")
+	log.Println("Starting Orbit Backend...")
 	cfg := config.Load()
 
 	db, err := database.Connect(cfg)

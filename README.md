@@ -20,7 +20,7 @@ The core of Orbit is a drag-and-drop canvas powered by **ReactFlow**.
 - Define Virtual Machines directly on compute nodes with independent IP assignments.
 - Real-time sync — every change on the canvas is persisted to PostgreSQL immediately.
 
-### Automated IP Management (hlbIPAM)
+### Automated IP Management (IPAM)
 
 A standalone Go microservice handles all IP address allocation:
 
@@ -92,7 +92,7 @@ For the full architecture reference — monorepo layout, backend layers, data mo
 ```
 orbit/
 ├── backend/           # Go API server (Gin + GORM)
-├── hlbipam/           # Standalone IPAM microservice
+├── ipam/           # Standalone IPAM microservice
 ├── frontend/          # React + TypeScript + ReactFlow
 ├── docker-compose.yml # Full stack orchestration
 └── AGENTS.md          # Detailed architecture & agent reference
@@ -175,14 +175,14 @@ Auth-disabled mode grants full admin access to anyone who can reach the instance
 |---|---|---|
 | `DB_HOST` | `postgres` | PostgreSQL hostname |
 | `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_USER` | `homelab` | PostgreSQL user |
-| `DB_PASSWORD` | `homelab_password` | PostgreSQL password |
-| `DB_NAME` | `homelab_builder` | Database name |
+| `DB_USER` | `orbit` | PostgreSQL user |
+| `DB_PASSWORD` | `orbit_password` | PostgreSQL password |
+| `DB_NAME` | `orbit` | Database name |
 | `DB_SSLMODE` | `disable` | PostgreSQL SSL mode |
 | `JWT_SECRET` | — | JWT signing secret |
 | `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `SERVER_PORT` | `8080` | HTTP listen port |
-| `IPAM_URL` | `http://hlbipam:8081` | hlbIPAM microservice URL |
+| `IPAM_URL` | `http://ipam:8081` | IPAM microservice URL |
 
 ### IPAM Microservice
 

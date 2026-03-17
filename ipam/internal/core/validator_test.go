@@ -3,7 +3,7 @@ package core
 import (
 	"testing"
 
-	"github.com/Butterski/hlbipam/internal/models"
+	"github.com/kr4t0n/orbit/ipam/internal/models"
 )
 
 func TestValidate_ValidTopology(t *testing.T) {

@@ -93,7 +93,7 @@ export function Sidebar({ className }: { className?: string }) {
               collapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100',
             )}
           >
-            HLBuilder
+            Orbit
           </span>
         </div>
 
@@ -195,7 +195,7 @@ export function Sidebar({ className }: { className?: string }) {
           )}
         >
           <a
-            href="https://github.com/Butterski/homelab-builder"
+            href="https://github.com/kr4t0n/orbit"
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground hover:text-primary transition-colors"
@@ -286,7 +286,7 @@ export function Sidebar({ className }: { className?: string }) {
               )}
             >
               <div className="flex justify-between items-center w-full">
-                <span className="font-semibold ml-2">Support HLBuilder</span>
+                <span className="font-semibold ml-2">Support Orbit</span>
               </div>
             </div>
           </NavLink>

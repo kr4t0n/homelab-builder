@@ -65,7 +65,7 @@ function AppContent() {
         <div className="absolute top-4 right-4 z-50">
           <ThemeToggle />
         </div>
-        <Suspense fallback={<LoadingScreen message="Loading HLBuilder..." />}>
+        <Suspense fallback={<LoadingScreen message="Loading Orbit..." />}>
           <Routes>
             <Route path="/" element={user ? <ProjectsPage /> : <LoginPage />} />
             {/* Protected routes */}

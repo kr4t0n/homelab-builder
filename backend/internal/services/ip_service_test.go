@@ -5,17 +5,17 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Butterski/homelab-builder/backend/internal/models"
+	"github.com/kr4t0n/orbit/backend/internal/models"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-// skipWithoutIPAM skips tests that require the hlbIPAM service to be running.
+// skipWithoutIPAM skips tests that require the IPAM service to be running.
 // In Docker-compose test mode, IPAM_URL is set; locally it is usually absent.
 func skipWithoutIPAM(t *testing.T) {
 	t.Helper()
 	if os.Getenv("IPAM_URL") == "" {
-		t.Skip("skipping: IPAM_URL not set (hlbIPAM not running)")
+		t.Skip("skipping: IPAM_URL not set (IPAM not running)")
 	}
 }
 
@@ -71,7 +71,7 @@ func newBuildID(t *testing.T, db *gorm.DB) uuid.UUID {
 	return build.ID
 }
 
-// ─── Integration tests (require hlbIPAM to be running) ──────────────────────
+// ─── Integration tests (require IPAM to be running) ──────────────────────
 
 func TestCalculateNetwork_NoNodes(t *testing.T) {
 	skipWithoutIPAM(t)

@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Currently only the `master` version of HLBuilder is actively supported for security updates.
+Currently only the `master` version of Orbit is actively supported for security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -11,7 +11,7 @@ Currently only the `master` version of HLBuilder is actively supported for secur
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within HLBuilder, please do NOT post it on the public GitHub issue tracker. 
+If you discover a security vulnerability within Orbit, please do NOT post it on the public GitHub issue tracker. 
 
 Instead, please send an e-mail to the repository owner directly or use GitHub's private vulnerability reporting feature on this repository. We will attempt to address and resolve the vulnerability as quickly as possible.
 
@@ -25,7 +25,7 @@ We appreciate your effort in responsibly disclosing vulnerabilities to keep the 
 
 ## Authentication Modes & Security Implications
 
-HLBuilder supports two authentication modes. Choosing the wrong mode for your deployment scenario is a security risk — please read this section carefully.
+Orbit supports two authentication modes. Choosing the wrong mode for your deployment scenario is a security risk — please read this section carefully.
 
 ### 1. Google OAuth Mode (Production / Public Deployments)
 
