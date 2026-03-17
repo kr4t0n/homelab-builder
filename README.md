@@ -1,188 +1,110 @@
-# HLBuilder
-<img src="./logo.svg" alt="Logo" width="100" height="100">
+# Orbit
+
+<img src="./logo.svg" alt="Orbit Logo" width="100" height="100">
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-HLBuilder is a comprehensive, interactive web application designed to simplify the process of planning and architecting home laboratory infrastructure. It provides users with a visual interface to design network topologies, receive intelligent hardware recommendations based on their self-hosting needs, and generate actionable shopping lists.
-
-## 🚀 Key Features
-
-### 1. Visual Network Builder
-The core of the application is a visual canvas powered by **ReactFlow**.
-- **Drag-and-drop hardware nodes**: Routers, switches, servers, NAS, Mini-PCs, SBCs (like Raspberry Pi), UPS, and more.
-- **Wire components**: Graph-based representation of physical and logical connections.
-- **Nested Virtualization**: Define Virtual Machines (VMs), Containers, or LXCs directly on compute nodes.
-- **Real-time Synchronization**: The visual state is continuously synchronized with a PostgreSQL database.
-
-### 2. Automated IP Management (`hlbIPAM`)
-A sophisticated backend microservice manages network addressing:
-- **Microservice Architecture for Scaling**: Built as a completely independent, stateless Go service. IP allocation requires heavy graph traversal and subnet math; isolating it means we can horizontally scale the IPAM workers seamlessly under high load without dragging down the main API server.
-- **Topology-Aware BFS**: Automatically assigns IP addresses by performing a Breadth-First Search from the gateway.
-- **Dynamic Pool Sizing**: Intelligently packs VM-hosting devices into separate pools without collisions.
-- **Conflict Prevention**: Handles custom IP assignments and avoids DHCP range overlaps.
-
-### 3. Service Catalog & Hardware Recommendations
-- **Comprehensive Catalog**: Browse popular homelab services with pre-defined resource requirements.
-- **3-Tier Suggestions**: Generates "Minimal", "Recommended", and "Optimal" hardware profiles.
-- **Live Resource Dashboard**: Calculates aggregate CPU, RAM, Storage, and Power needs to ensure hardware can handle the concurrent load.
-
-### 4. Actionable Shopping List
-- **Itemized Components**: Automatically generates a shopping list including main hardware and necessary peripherals (RAM, NVMe, etc.).
-- **Price Estimation**: Provides estimated costs with direct purchase links based on your region.
+> **Special Thanks** — Orbit began as a fork of [**Butterski/homelab-builder**](https://github.com/Butterski/homelab-builder) by [Paweł Kręczewski](https://www.linkedin.com/in/pawe%C5%82-kr%C4%99czewski-a2a372242/). The original project laid the groundwork for the visual builder concept and its 3-layer structural logo. Orbit has since diverged significantly — narrowing the scope to a dedicated network topology visualizer while adding Tailscale VPN overlays, Kubernetes cluster modeling, and a reworked IP management engine — but the original vision and effort deserve recognition. Thank you, Paweł.
 
 ---
 
-## 🛠️ Tech Stack
+Orbit is an interactive network topology visualizer for homelab infrastructure. Drop in routers, switches, servers, NAS boxes, SBCs, and other hardware onto a visual canvas, wire them together, and watch the tool automatically assign IP addresses, map Tailscale mesh overlays, and model Kubernetes clusters — all in real time.
+
+## Key Features
+
+### Visual Network Builder
+
+The core of Orbit is a drag-and-drop canvas powered by **ReactFlow**.
+
+- Place hardware nodes (routers, switches, servers, NAS, Mini-PCs, SBCs, UPS, and more) and wire them into a topology graph.
+- Define Virtual Machines directly on compute nodes with independent IP assignments.
+- Real-time sync — every change on the canvas is persisted to PostgreSQL immediately.
+
+### Automated IP Management (hlbIPAM)
+
+A standalone Go microservice handles all IP address allocation:
+
+- **Topology-aware BFS** — walks outward from each gateway router to assign addresses based on device role zones.
+- **Shared offset maps** — multiple routers on the same `/24` subnet never produce duplicate IPs.
+- **VM-aware pool sizing** — host and VM addresses are packed without collisions.
+- **Custom IP preservation** — manually assigned addresses are respected during recalculation.
+
+### Tailscale VPN Overlay
+
+- Toggle Tailscale support per build and assign Tailscale IPs to any node or VM.
+- A **Mesh Overlay View** draws dashed lines between all enrolled devices to visualize the full-mesh VPN topology on top of your physical layout.
+- Tailscale IPs are user-managed — they are never overwritten by the IP assignment engine.
+
+### Kubernetes Cluster Modeling
+
+- Create Kubernetes clusters with configurable Pod CIDR, Service CIDR, CNI plugin (Flannel / Calico / Cilium), and API server port.
+- Enroll physical nodes or VMs as master or worker members.
+- Define workloads (deployments) with replica counts, resource requests, ports, and ingress settings.
+- A **Cluster Overlay View** visualizes cluster topology with masters at the center and workers in orbit.
+
+### Service Catalog & Hardware Recommendations
+
+- Browse a catalog of popular homelab services with pre-defined resource requirements.
+- Generate hardware profiles at three tiers — Minimal, Recommended, and Optimal.
+- A live resource dashboard aggregates CPU, RAM, storage, and power draw across the build.
+
+### Shopping List Generation
+
+- Automatically generate an itemized shopping list from a build, including peripherals (RAM, NVMe, cables).
+- Estimated pricing with direct purchase links based on your region.
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 18 + TypeScript, Vite, ReactFlow, TailwindCSS, Zustand |
-| **Backend API** | Go 1.24+, Gin, GORM v1.25.x |
-| **IPAM Microservice**| Go 1.24+, Standard Library REST API |
-| **Database** | PostgreSQL 15 |
-| **Auth & Security** | Google OAuth 2.0 + JWT |
-| **Deploy** | Docker & Docker Compose |
+| **Frontend** | React 18, TypeScript, Vite, ReactFlow, TailwindCSS, Zustand |
+| **Backend API** | Go 1.24+, Gin, GORM |
+| **IPAM Microservice** | Go 1.24+, standard library REST |
+| **Database** | PostgreSQL 17 |
+| **Auth** | Google OAuth 2.0 + JWT (optional — runs without auth for self-hosting) |
+| **Infrastructure** | Docker & Docker Compose |
 
 ---
 
-## 🏗️ Architecture Overview
-For detailed information on the codebase architecture, folder structure, testing infrastructure, and known pitfalls, please refer to [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). 
-For the feature roadmap and future ideas, see [ROADMAP.md](./ROADMAP.md).
-
----
-
-## 🏠 Self-Hosting Without Google OAuth (Auth-Disabled Mode)
-
-HLBuilder ships with a built-in **auth-disabled mode** designed for self-hosted / local deployments where you don't want to (or can't) set up Google OAuth credentials. When enabled, the application bypasses all login screens and automatically provisions a local admin user — no Google account, no OAuth app registration, and no tokens required.
-
-### How It Works
-
-The entire mechanism is driven by a single condition: **whether `GOOGLE_CLIENT_ID` is set**.
-
-| Component | What happens when `GOOGLE_CLIENT_ID` is **empty / unset** |
-|---|---|
-| **Backend** | `config.AuthDisabled` becomes `true`. Every protected endpoint's auth middleware skips JWT validation and instead auto-provisions a **Local Admin** user (`local@homelab.local`) with full access, including admin privileges. |
-| **Frontend** | `VITE_GOOGLE_CLIENT_ID` is empty, so the Google login button is non-functional. The auth hook detects this and calls `/auth/me` without a token — the backend responds with the Local Admin user, automatically logging you in. |
-| **Login Page** | You will still briefly see the login page on first load, but the auto-login fires immediately and redirects you to the projects dashboard. |
-
-### Quick Start (Auth-Disabled)
-
-Simply start the stack **without** providing any Google or JWT variables:
+## Quick Start
 
 ```bash
-git clone https://github.com/Butterski/homelab-builder.git
-cd homelab-builder
+git clone <your-orbit-repo-url>
+cd orbit
 
-# No .env file needed — just start the containers
-docker compose up -d
-```
-
-That's it. Open `http://localhost:3000` and you'll be automatically logged in as **Local Admin**.
-
-The default `docker-compose.yml` references `${GOOGLE_CLIENT_ID}`, `${VITE_GOOGLE_CLIENT_ID}`, and `${JWT_SECRET}` from the environment / `.env` file. When these variables are absent, Docker Compose passes empty strings, which triggers auth-disabled mode on both the backend and frontend.
-
-### Verifying Auth-Disabled Mode
-
-You can confirm the mode is active by checking the backend logs on startup:
-
-```
-Starting HLBuilder Backend...
-Database connected. Setting up routes...
-```
-
-There will be **no** panic or error about `JWT_SECRET` because the backend only enforces a strong JWT secret in production mode (`GIN_MODE=release`). In the default Docker Compose config, `GIN_MODE` is set to `release`, so you must either:
-
-1. **Remove or change** `GIN_MODE` from the `backend` service environment (recommended for local self-hosting), or
-2. **Set `JWT_SECRET`** to any random string (e.g., `JWT_SECRET=my-local-secret-12345`).
-
-#### Recommended `docker-compose.override.yml` for Self-Hosting
-
-Create a `docker-compose.override.yml` next to the main compose file:
-
-```yaml
-services:
-  backend:
-    environment:
-      GIN_MODE: "debug"      # Disables the JWT_SECRET strength check
-      # GOOGLE_CLIENT_ID intentionally left unset → auth disabled
-      # JWT_SECRET intentionally left unset → uses built-in dev secret
-```
-
-Then run:
-
-```bash
-docker compose up -d
-```
-
-### Environment Variables Reference (Auth-Related)
-
-| Variable | Where | Required for Auth-Disabled? | Description |
-|---|---|---|---|
-| `GOOGLE_CLIENT_ID` | Backend | **No — leave unset** | When empty, backend sets `AuthDisabled=true` and skips JWT validation on all protected routes. |
-| `VITE_GOOGLE_CLIENT_ID` | Frontend (build arg) | **No — leave unset** | When empty, the frontend skips the Google login flow and auto-authenticates via `/auth/me`. |
-| `JWT_SECRET` | Backend | **No** (unless `GIN_MODE=release`) | Secret for signing JWTs. In auth-disabled mode JWTs are never issued, so this is unused. If running in release mode, set it to any random string. |
-| `GIN_MODE` | Backend | **No** | Set to `debug` (or omit) to skip the JWT_SECRET strength check. Set to `release` for production with Google OAuth. |
-
-### The Local Admin User
-
-When auth is disabled, the backend automatically creates (or reuses) a user with these properties:
-
-| Field | Value |
-|---|---|
-| Email | `local@homelab.local` |
-| Name | `Local Admin` |
-| Google ID | `local-auth-disabled` |
-| Avatar | DiceBear generated avatar |
-
-This user is created on first request to any protected endpoint and persists in the database. All builds, selections, and preferences are stored under this single user. If you later enable Google OAuth, this user remains in the database but will no longer be auto-selected — you'll log in with your Google account instead.
-
-### Dev Login Endpoint (Advanced)
-
-In addition to auth-disabled mode, when the backend is **not** running in release mode (`GIN_MODE != release`), a development login endpoint is available:
-
-```
-POST /auth/dev
-Content-Type: application/json
-
-{ "email": "any-email@example.com" }
-```
-
-This creates (or logs into) a user with the given email — no Google account needed. It returns a JWT token you can use in `Authorization: Bearer <token>` headers. This is useful for:
-- Testing multi-user scenarios locally
-- Scripting / API access without a browser
-- Frontend development with `api.devLogin("your@email.com")`
-
-> **Note:** The `/auth/dev` endpoint is **disabled** when `GIN_MODE=release` to prevent unauthorized access in production.
-
-### Security Considerations
-
-- **Auth-disabled mode is intended for local / trusted network deployments only.** Anyone who can reach your HLBuilder instance will have full admin access without any credentials.
-- **Do not expose an auth-disabled instance to the public internet.** If you need external access, set up Google OAuth or put the instance behind a VPN / reverse proxy with its own authentication.
-- **The dev login endpoint (`/auth/dev`) is also only available in non-release mode.** It will not be exposed in production deployments.
-
----
-
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/Butterski/homelab-builder.git
-cd homelab-builder
-
-# Start all services via Docker Compose
+# Start all services (no .env needed — auth-disabled mode by default)
 docker compose up -d
 
-# Access the application
 # Frontend: http://localhost:3000
 # Backend:  http://localhost:8080
 ```
 
-## 👨‍💻 Local Development
+Without Google OAuth credentials, Orbit runs in **auth-disabled mode** — it automatically provisions a local admin user so you can start building immediately. See [Auth-Disabled Mode](#self-hosting-without-google-oauth) below for details.
+
+---
+
+## Architecture
+
+For the full architecture reference — monorepo layout, backend layers, data model, IP assignment algorithm, testing infrastructure, and known pitfalls — see [AGENTS.md](./AGENTS.md).
+
+```
+orbit/
+├── backend/           # Go API server (Gin + GORM)
+├── hlbipam/           # Standalone IPAM microservice
+├── frontend/          # React + TypeScript + ReactFlow
+├── docker-compose.yml # Full stack orchestration
+└── AGENTS.md          # Detailed architecture & agent reference
+```
+
+---
+
+## Local Development
 
 ```bash
 # Backend (requires Go 1.24+)
 cd backend
-cp ../.env.example ../.env
 go run ./cmd/server
 
 # Frontend (requires Node 20+)
@@ -191,8 +113,92 @@ npm install
 npm run dev
 ```
 
-## 🎨 Credits
-HLBuilder's custom 3-layer structural logo was designed and created by **[Paweł Kręczewski](https://www.linkedin.com/in/pawe%C5%82-kr%C4%99czewski-a2a372242/)**.
+---
 
-## 📄 License
+## Running Tests
+
+```bash
+# All tests (backend in Docker + frontend locally)
+make test
+
+# Backend only (runs against real PostgreSQL in Docker)
+make test-backend
+
+# Frontend only (Vitest, fully mocked — no backend needed)
+make test-frontend
+```
+
+---
+
+## Self-Hosting Without Google OAuth
+
+Orbit ships with a built-in **auth-disabled mode** for local and trusted-network deployments. When `GOOGLE_CLIENT_ID` is unset, the backend bypasses JWT validation and auto-provisions a **Local Admin** user (`local@homelab.local`) with full access.
+
+### How to enable
+
+Just start the stack without providing Google/JWT variables — the default `docker-compose.yml` triggers auth-disabled mode when they are absent.
+
+If running with `GIN_MODE=release`, either switch to `debug` or set `JWT_SECRET` to any random string:
+
+```yaml
+# docker-compose.override.yml
+services:
+  backend:
+    environment:
+      GIN_MODE: "debug"
+```
+
+### Environment variables (auth-related)
+
+| Variable | Required for auth-disabled? | Description |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | No — leave unset | Enables auth-disabled mode when empty |
+| `VITE_GOOGLE_CLIENT_ID` | No — leave unset | Frontend skips Google login and auto-authenticates |
+| `JWT_SECRET` | No (unless `GIN_MODE=release`) | Unused in auth-disabled mode |
+| `GIN_MODE` | No | Set to `debug` to skip JWT secret strength check |
+
+### Dev login endpoint
+
+When `GIN_MODE != release`, a development endpoint is available at `POST /auth/dev` — send `{"email": "any@example.com"}` to get a JWT for scripting and multi-user testing.
+
+### Security note
+
+Auth-disabled mode grants full admin access to anyone who can reach the instance. Do not expose it to the public internet without a VPN or reverse proxy with its own authentication layer.
+
+---
+
+## Environment Variables
+
+### Backend
+
+| Variable | Default | Description |
+|---|---|---|
+| `DB_HOST` | `postgres` | PostgreSQL hostname |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_USER` | `homelab` | PostgreSQL user |
+| `DB_PASSWORD` | `homelab_password` | PostgreSQL password |
+| `DB_NAME` | `homelab_builder` | Database name |
+| `DB_SSLMODE` | `disable` | PostgreSQL SSL mode |
+| `JWT_SECRET` | — | JWT signing secret |
+| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
+| `SERVER_PORT` | `8080` | HTTP listen port |
+| `IPAM_URL` | `http://hlbipam:8081` | hlbIPAM microservice URL |
+
+### IPAM Microservice
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `8081` | HTTP listen port |
+
+### Frontend (Vite build args)
+
+| Variable | Description |
+|---|---|
+| `VITE_API_URL` | Backend base URL (default `http://localhost:8080`) |
+| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |
+
+---
+
+## License
+
 This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](./LICENSE) file for details.
