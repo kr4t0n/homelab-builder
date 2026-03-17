@@ -71,7 +71,7 @@ A standalone Go microservice handles all IP address allocation:
 ## Quick Start
 
 ```bash
-git clone <your-orbit-repo-url>
+git clone https://github.com/kr4t0n/orbit.git
 cd orbit
 
 # Start all services (no .env needed — auth-disabled mode by default)
