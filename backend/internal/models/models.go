@@ -177,6 +177,7 @@ type Node struct {
 	IP          string          `gorm:"default:''" json:"ip"`
 	TailscaleIP string          `gorm:"default:''" json:"tailscale_ip"`
 	Site        string          `gorm:"default:''" json:"site"`
+	SortOrder   int             `gorm:"not null;default:0" json:"sort_order"`
 	Details     json.RawMessage `gorm:"type:jsonb;default:'{}'" json:"details"` // Hardware specs
 	ParentID    *uuid.UUID      `gorm:"type:uuid;constraint:OnDelete:CASCADE" json:"parent_id,omitempty"` // VM-host relationship
 	CreatedAt   time.Time       `json:"created_at"`

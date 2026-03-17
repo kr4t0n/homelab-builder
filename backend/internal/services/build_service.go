@@ -155,15 +155,16 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 	}
 
 	// 2. Insert parent nodes first
-	for _, n := range parentNodes {
-		if err := s.insertNode(tx, buildID, n, idMap, compIdMap); err != nil {
+	for i, n := range parentNodes {
+		if err := s.insertNode(tx, buildID, n, i, idMap, compIdMap); err != nil {
 			return err
 		}
 	}
 
 	// 3. Insert child nodes (VMs) — parent IDs are resolved from idMap
-	for _, n := range childNodes {
-		if err := s.insertNode(tx, buildID, n, idMap, compIdMap); err != nil {
+	offset := len(parentNodes)
+	for i, n := range childNodes {
+		if err := s.insertNode(tx, buildID, n, offset+i, idMap, compIdMap); err != nil {
 			return err
 		}
 	}
@@ -223,7 +224,7 @@ func (s *BuildService) syncGraph(tx *gorm.DB, buildID uuid.UUID, input SyncGraph
 	return nil
 }
 
-func (s *BuildService) insertNode(tx *gorm.DB, buildID uuid.UUID, n NodeDTO, idMap map[string]uuid.UUID, compIdMap map[string]uuid.UUID) error {
+func (s *BuildService) insertNode(tx *gorm.DB, buildID uuid.UUID, n NodeDTO, sortOrder int, idMap map[string]uuid.UUID, compIdMap map[string]uuid.UUID) error {
 	var uid uuid.UUID
 	if parsed, err := uuid.Parse(n.ID); err == nil {
 		uid = parsed
@@ -253,6 +254,7 @@ func (s *BuildService) insertNode(tx *gorm.DB, buildID uuid.UUID, n NodeDTO, idM
 		IP:          n.IP,
 		TailscaleIP: n.TailscaleIP,
 		Site:        n.Site,
+		SortOrder:   sortOrder,
 		Details:     detailsJSON,
 	}
 	if n.ParentID != nil && *n.ParentID != "" {
@@ -292,7 +294,7 @@ func (s *BuildService) insertNode(tx *gorm.DB, buildID uuid.UUID, n NodeDTO, idM
 func (s *BuildService) GetByID(buildID uuid.UUID) (*models.Build, error) {
 	var build models.Build
 	if err := s.db.Preload("User").
-		Preload("Nodes").
+		Preload("Nodes", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order") }).
 		Preload("Nodes.InternalComponents").
 		Preload("Edges").
 		Preload("Nodes.ServiceInstances").
@@ -350,7 +352,7 @@ type EdgeDTO struct {
 
 func (s *BuildService) ListByUser(userID uuid.UUID) ([]models.Build, error) {
 	var builds []models.Build
-	if err := s.db.Preload("Nodes").Where("user_id = ?", userID).Order("updated_at desc").Find(&builds).Error; err != nil {
+	if err := s.db.Preload("Nodes", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order") }).Where("user_id = ?", userID).Order("updated_at desc").Find(&builds).Error; err != nil {
 		return nil, err
 	}
 	return builds, nil
@@ -422,6 +424,7 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 				IP:          node.IP,
 				TailscaleIP: node.TailscaleIP,
 				Site:        node.Site,
+				SortOrder:   node.SortOrder,
 				Details:     node.Details,
 			}
 			if err := tx.Create(&newNode).Error; err != nil {
@@ -464,6 +467,7 @@ func (s *BuildService) Duplicate(buildID uuid.UUID, userID uuid.UUID) (*models.B
 				IP:          node.IP,
 				TailscaleIP: node.TailscaleIP,
 				Site:        node.Site,
+				SortOrder:   node.SortOrder,
 				Details:     node.Details,
 			}
 			if node.ParentID != nil {

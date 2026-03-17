@@ -610,13 +610,24 @@ export const useBuilderStore = create<BuilderState>()(
       reorderVMs: (hostId, orderedVmIds) => {
         set(state => {
           const vmSet = new Set(orderedVmIds);
+
+          // Reorder hardwareNodes
           const vms = state.hardwareNodes.filter(n => n.parent_id === hostId && vmSet.has(n.id));
           const byId = new Map(vms.map(n => [n.id, n]));
           const ordered = orderedVmIds.map(id => byId.get(id)).filter(Boolean) as typeof vms;
           const rest = state.hardwareNodes.filter(n => !(n.parent_id === hostId && vmSet.has(n.id)));
           const insertIdx = rest.findIndex(n => n.id === hostId) + 1;
           const hardwareNodes = [...rest.slice(0, insertIdx), ...ordered, ...rest.slice(insertIdx)];
-          return { hardwareNodes };
+
+          // Reorder ReactFlow nodes to match
+          const rfVms = state.nodes.filter(n => vmSet.has(n.id));
+          const rfById = new Map(rfVms.map(n => [n.id, n]));
+          const rfOrdered = orderedVmIds.map(id => rfById.get(id)).filter(Boolean) as typeof rfVms;
+          const rfRest = state.nodes.filter(n => !vmSet.has(n.id));
+          const rfInsertIdx = rfRest.findIndex(n => n.id === hostId) + 1;
+          const nodes = [...rfRest.slice(0, rfInsertIdx), ...rfOrdered, ...rfRest.slice(rfInsertIdx)];
+
+          return { hardwareNodes, nodes };
         });
       },
 
