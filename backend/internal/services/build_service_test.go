@@ -12,7 +12,7 @@ import (
 func TestBuildService_Create(t *testing.T) {
 	tx := testTx(t)
 	svc := NewBuildService(tx)
-	user := models.User{Email: uuid.NewString() + "@t.com", Name: "T", GoogleID: uuid.NewString()}
+	user := models.User{Email: uuid.NewString() + "@t.com", Name: "T", PasswordHash: "testhash"}
 	tx.Create(&user)
 
 	input := SyncGraphInput{

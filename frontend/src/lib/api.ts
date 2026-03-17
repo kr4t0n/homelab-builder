@@ -50,14 +50,14 @@ export const api = {
     put: <T>(path: string, body: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
     patch: <T>(path: string, body: unknown) => request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
     del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
-    async devLogin(email: string) {
-        const res = await this.post<{ token: string, user: any }>('/auth/dev', { email });
+    async login(email: string, password: string) {
+        const res = await this.post<{ token: string, user: any }>('/auth/login', { email, password });
         localStorage.setItem('auth_token', res.token);
         return res;
     },
 
-    async googleLogin(credential: string) {
-        const res = await this.post<{ token: string, user: any }>('/auth/google', { credential });
+    async register(email: string, password: string, name: string) {
+        const res = await this.post<{ token: string, user: any }>('/auth/register', { email, password, name });
         localStorage.setItem('auth_token', res.token);
         return res;
     },

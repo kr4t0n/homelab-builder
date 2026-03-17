@@ -23,8 +23,6 @@ import { Sidebar } from './components/layout/sidebar';
 import { ThemeToggle } from './components/theme-toggle';
 import { Toaster } from './components/ui/sonner';
 
-import { GoogleOAuthProvider } from '@react-oauth/google';
-
 const queryClient = new QueryClient();
 
 import { useLocation } from 'react-router-dom';
@@ -131,28 +129,15 @@ function AppContent() {
 }
 
 function App() {
-  const rawClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-  const isAuthDisabled = !rawClientId || rawClientId === "your-client-id" || rawClientId === "your_client_id_here";
-
-  const appProviders = (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <Router>
-            <AppContent />
-            <Toaster />
-          </Router>
-        </ThemeProvider>
-      </QueryClientProvider>
-  );
-
-  if (isAuthDisabled) {
-      return appProviders;
-  }
-
   return (
-    <GoogleOAuthProvider clientId={rawClientId}>
-        {appProviders}
-    </GoogleOAuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <Router>
+          <AppContent />
+          <Toaster />
+        </Router>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

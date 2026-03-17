@@ -28,7 +28,6 @@ export default function ProfilePage() {
   const projectCount = builds?.length ?? 0;
 
   const avatarUrl =
-    user?.avatar_url ||
     `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user?.email ?? 'user')}`;
 
   const handleLogout = () => {

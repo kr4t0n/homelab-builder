@@ -13,7 +13,7 @@ import {
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../features/admin/hooks/use-auth';
 import { useBuilderStore } from '../../features/builder/store/builder-store';
-import { GoogleLoginButton } from '../auth/google-login-button';
+import { AuthForm } from '../auth/auth-form';
 import { LayoutTemplate } from 'lucide-react';
 import { Logo } from '../ui/logo';
 
@@ -127,7 +127,6 @@ export function Sidebar({ className }: { className?: string }) {
                 <>
                   <img
                     src={
-                      user.avatar_url ||
                       `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`
                     }
                     className="h-8 w-8 rounded-full bg-primary/20 shrink-0"
@@ -146,7 +145,7 @@ export function Sidebar({ className }: { className?: string }) {
                 </>
               ) : (
                 <div className="w-full">
-                  <GoogleLoginButton />
+                  <AuthForm />
                 </div>
               )}
             </div>
@@ -158,7 +157,6 @@ export function Sidebar({ className }: { className?: string }) {
           <div className="border-t p-2 flex justify-center animate-in fade-in duration-200">
             <img
               src={
-                user.avatar_url ||
                 `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`
               }
               className="h-8 w-8 rounded-full bg-primary/20 cursor-pointer hover:ring-2 ring-primary/40 transition-all"

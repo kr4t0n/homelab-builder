@@ -61,7 +61,7 @@ export function Layout({ children }: LayoutProps) {
         <div className="sidebar-footer">
           {user ? (
             <div className="user-profile">
-              <img src={user.avatar_url} alt={user.name} className="user-avatar" />
+              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.email)}`} alt={user.name} className="user-avatar" />
               <div className="user-info">
                 <span className="user-name">{user.name}</span>
                 <span className="user-email" title={user.email}>{user.email}</span>

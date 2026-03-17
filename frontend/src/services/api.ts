@@ -19,10 +19,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
     if (!res.ok) {
         if (res.status === 401) {
-            // Token expired or invalid
             localStorage.removeItem('auth_token');
-            // Only redirect if we're not on a public page or checking /me
-            const publicPaths = ['/', '/login', '/privacy', '/terms', '/hardware', '/services'];
+            const publicPaths = ['/', '/login', '/register', '/privacy', '/terms', '/hardware', '/services'];
             const isPublicPage = publicPaths.includes(window.location.pathname);
             if (!isPublicPage && path !== '/auth/me') {
                 window.location.href = '/';
@@ -59,10 +57,16 @@ export const api = {
         }),
 
     // Auth
-    googleLogin: (data: { google_id: string; email: string; name: string; avatar_url: string }) =>
-        request<{ data: { token: string; user: import('../types').User } }>('/auth/google', {
+    login: (email: string, password: string) =>
+        request<{ token: string; user: import('../types').User }>('/auth/login', {
             method: 'POST',
-            body: JSON.stringify(data),
+            body: JSON.stringify({ email, password }),
+        }),
+
+    register: (email: string, password: string, name: string) =>
+        request<{ token: string; user: import('../types').User }>('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ email, password, name }),
         }),
 
     getCurrentUser: () =>

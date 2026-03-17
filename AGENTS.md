@@ -126,7 +126,7 @@ HTTP Request → Gin Router → Middleware → Handler → Service → GORM → 
 
 | File | Responsibility |
 |---|---|
-| `auth.go` | JWT-based `AuthMiddleware` and `AuthMiddlewareWithUser` (loads full user model) |
+| `auth.go` | JWT-based `AuthMiddleware` and `AuthMiddlewareWithUser` (loads full user model for admin checks) |
 | `admin.go` | `AdminRequired()` — checks `IsAdmin` flag on loaded user |
 | `rate_limiter.go` | Per-IP rate limiting for sensitive endpoints (login) |
 | `security.go` | `SecurityHeaders()` — standard security response headers |
@@ -135,7 +135,7 @@ HTTP Request → Gin Router → Middleware → Handler → Service → GORM → 
 
 | File | Responsibility |
 |---|---|
-| `auth.go` | Google OAuth login, dev login, get current user, update preferences |
+| `auth.go` | Email/password register and login, get current user, update preferences |
 | `build_handler.go` | Build CRUD, duplicate, calculate-network, validate-network |
 | `hardware_handler.go` | Public hardware catalog + admin CRUD, bulk import, approve, buy URLs |
 | `services.go` | Service CRUD + community submission |
@@ -156,7 +156,7 @@ HTTP Request → Gin Router → Middleware → Handler → Service → GORM → 
 |---|---|
 | `build_service.go` | CRUD for builds; syncs ReactFlow JSON → relational `nodes`/`edges` tables |
 | `ip_service.go` | Graph-aware BFS IP assignment per subnet |
-| `auth_service.go` | Google OAuth token verification, JWT issuance |
+| `auth_service.go` | Email/password registration and login with bcrypt, JWT issuance |
 | `hardware_service.go` | Hardware catalog queries + admin operations |
 | `recommendation_service.go` | Service/hardware recommendations based on selections |
 | `service_service.go` | Service catalog CRUD + community submissions |
@@ -240,7 +240,7 @@ feature/
 |---|---|
 | `builder/` | Visual network builder — the main feature (ReactFlow canvas, node management, IP display) |
 | `admin/` | Admin dashboard, user management, service/hardware admin, steering rules, catalog components |
-| `auth/` | Login page (Google OAuth), profile page |
+| `auth/` | Login/register page (email/password), profile page |
 | `catalog/` | Public hardware & service catalog browsing |
 | `shopping/` | Shopping list generation from build data |
 | `donate/` | Donation page with progress tracking |
@@ -612,7 +612,6 @@ These bugs were diagnosed and fixed; tests guard against regression.
 | `DB_TYPE` | `postgres` | Database driver type |
 | `TEST_DB_NAME` | `orbit_test` | Test database name (used by TestMain) |
 | `JWT_SECRET` | — | Secret for signing JWTs |
-| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `SERVER_PORT` | `8080` | HTTP listen port |
 | `IPAM_URL` | `http://ipam:8081` | IPAM microservice URL |
 
@@ -627,4 +626,3 @@ These bugs were diagnosed and fixed; tests guard against regression.
 | Variable | Description |
 |---|---|
 | `VITE_API_URL` | Backend base URL (default: `http://localhost:8080`) |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |

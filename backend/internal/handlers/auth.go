@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/kr4t0n/orbit/backend/internal/middleware"
@@ -22,29 +21,52 @@ func NewAuthHandler(service *services.AuthService, rateLimiter *middleware.RateL
 	}
 }
 
-func (h *AuthHandler) GoogleLogin(c *gin.Context) {
-	ip := c.ClientIP()
-
-	var input services.GoogleLoginInput
+func (h *AuthHandler) Register(c *gin.Context) {
+	var input services.RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		// Record as failed attempt (malformed request = suspicious)
-		h.rateLimiter.RecordFailure(ip)
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid payload. Expected 'credential' field.",
+			"error": "Invalid payload. Email, password (min 8 chars), and name are required.",
 			"code":  "invalid_payload",
 		})
 		return
 	}
 
-	result, err := h.service.GoogleLogin(input)
+	result, err := h.service.Register(input)
 	if err != nil {
-		log.Printf("Google Login Error: %v", err)
+		if err.Error() == "email already registered" {
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "Email already registered",
+				"code":  "email_taken",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Registration failed",
+			"code":  "registration_failed",
+		})
+		return
+	}
 
-		// Record failure
+	c.JSON(http.StatusCreated, result)
+}
+
+func (h *AuthHandler) Login(c *gin.Context) {
+	ip := c.ClientIP()
+
+	var input services.LoginInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		h.rateLimiter.RecordFailure(ip)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid payload. Email and password are required.",
+			"code":  "invalid_payload",
+		})
+		return
+	}
+
+	result, err := h.service.Login(input)
+	if err != nil {
 		locked := h.rateLimiter.RecordFailure(ip)
 		if locked {
-			log.Printf("Rate limit locked IP: %s", ip)
-			// Just locked — return same generic error
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error": "Invalid credentials",
 				"code":  "invalid_credentials",
@@ -58,28 +80,7 @@ func (h *AuthHandler) GoogleLogin(c *gin.Context) {
 		return
 	}
 
-	// Success — clear attempt counter
 	h.rateLimiter.ClearAttempts(ip)
-	// Return result directly without "data" wrapper to match frontend expectation
-	c.JSON(http.StatusOK, result)
-}
-
-func (h *AuthHandler) DevLogin(c *gin.Context) {
-	var input struct {
-		Email string `json:"email" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email is required"})
-		return
-	}
-
-	result, err := h.service.DevLogin(input.Email)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Login failed"})
-		return
-	}
-
-	// Return result directly without "data" wrapper
 	c.JSON(http.StatusOK, result)
 }
 
@@ -102,7 +103,6 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
-	// Return result directly without "data" wrapper
 	c.JSON(http.StatusOK, user)
 }
 

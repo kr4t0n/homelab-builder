@@ -10,30 +10,112 @@ import (
 	"github.com/kr4t0n/orbit/backend/internal/models"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func TestAuthService_UpdatePreferences(t *testing.T) {
-	// Let's use the actual DB container via the test Tx method defined in testhelpers_test.go
+func TestAuthService_Register(t *testing.T) {
 	tx := testTx(t)
-
-	// Set Env variables since NewAuthService loads from ENV now
 	os.Setenv("JWT_SECRET", "test-secret-key-12345")
-	os.Setenv("GOOGLE_CLIENT_ID", "test-client-id")
-
 	authSvc := NewAuthService(tx)
 
-	user := models.User{
-		GoogleID: "google-123",
-		Email:    "test@example.com",
-		Name:     "Test User",
+	input := RegisterInput{
+		Email:    "newuser@example.com",
+		Password: "securepassword",
+		Name:     "New User",
 	}
 
-	if err := tx.Create(&user).Error; err != nil {
-		t.Fatalf("Failed to create user: %v", err)
+	result, err := authSvc.Register(input)
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
 	}
+
+	if result.Token == "" {
+		t.Error("Expected non-empty token")
+	}
+	if result.User.Email != input.Email {
+		t.Errorf("Expected email %s, got %s", input.Email, result.User.Email)
+	}
+	if result.User.Name != input.Name {
+		t.Errorf("Expected name %s, got %s", input.Name, result.User.Name)
+	}
+
+	// Verify password was hashed
+	var dbUser models.User
+	tx.Where("email = ?", input.Email).First(&dbUser)
+	if err := bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(input.Password)); err != nil {
+		t.Error("Password hash does not match original password")
+	}
+
+	// Duplicate email should fail
+	_, err = authSvc.Register(input)
+	if err == nil {
+		t.Error("Expected error for duplicate email registration")
+	}
+}
+
+func TestAuthService_Login(t *testing.T) {
+	tx := testTx(t)
+	os.Setenv("JWT_SECRET", "test-secret-key-12345")
+	authSvc := NewAuthService(tx)
+
+	// Register first
+	regInput := RegisterInput{
+		Email:    "logintest@example.com",
+		Password: "mypassword123",
+		Name:     "Login Test",
+	}
+	_, err := authSvc.Register(regInput)
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	// Login with correct credentials
+	loginInput := LoginInput{Email: regInput.Email, Password: regInput.Password}
+	result, err := authSvc.Login(loginInput)
+	if err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+	if result.Token == "" {
+		t.Error("Expected non-empty token")
+	}
+	if result.User.Email != regInput.Email {
+		t.Errorf("Expected email %s, got %s", regInput.Email, result.User.Email)
+	}
+
+	// Login with wrong password
+	badInput := LoginInput{Email: regInput.Email, Password: "wrongpassword"}
+	_, err = authSvc.Login(badInput)
+	if err == nil {
+		t.Error("Expected error for wrong password")
+	}
+
+	// Login with non-existent email
+	noUserInput := LoginInput{Email: "noone@example.com", Password: "whatever"}
+	_, err = authSvc.Login(noUserInput)
+	if err == nil {
+		t.Error("Expected error for non-existent email")
+	}
+}
+
+func TestAuthService_UpdatePreferences(t *testing.T) {
+	tx := testTx(t)
+	os.Setenv("JWT_SECRET", "test-secret-key-12345")
+	authSvc := NewAuthService(tx)
+
+	// Register a user
+	regInput := RegisterInput{
+		Email:    "prefs@example.com",
+		Password: "securepassword",
+		Name:     "Prefs User",
+	}
+	regResult, err := authSvc.Register(regInput)
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+	userID := regResult.User.ID
 
 	// Initial Preferences should be empty JSON "{}"
-	loadedUser, err := authSvc.GetCurrentUser(user.ID)
+	loadedUser, err := authSvc.GetCurrentUser(userID)
 	if err != nil {
 		t.Fatalf("Failed to fetch user: %v", err)
 	}
@@ -49,12 +131,11 @@ func TestAuthService_UpdatePreferences(t *testing.T) {
 		"timezone":  "UTC",
 	}
 
-	updatedUser, err := authSvc.UpdatePreferences(user.ID, newPrefs)
+	updatedUser, err := authSvc.UpdatePreferences(userID, newPrefs)
 	if err != nil {
 		t.Fatalf("UpdatePreferences failed: %v", err)
 	}
 
-	// Verify the object returned by the update
 	var unmarshaledPrefs map[string]interface{}
 	if err := json.Unmarshal(updatedUser.Preferences, &unmarshaledPrefs); err != nil {
 		t.Fatalf("Failed to unmarshal returned preferences: %v", err)
@@ -63,15 +144,12 @@ func TestAuthService_UpdatePreferences(t *testing.T) {
 	if unmarshaledPrefs["theme"] != "dark" {
 		t.Errorf("Expected theme 'dark', got %v", unmarshaledPrefs["theme"])
 	}
-	// Note: JSON unmarshals false bools as bool, and numeric strings as float64 usually,
-	// checking `showHints` safely:
 	if hints, ok := unmarshaledPrefs["showHints"].(bool); !ok || hints != false {
 		t.Errorf("Expected showHints to be false, got %v", unmarshaledPrefs["showHints"])
 	}
 
 	// Verify persistence in DB
-	persistedUser, _ := authSvc.GetCurrentUser(user.ID)
-
+	persistedUser, _ := authSvc.GetCurrentUser(userID)
 	var persistedPrefs map[string]interface{}
 	json.Unmarshal(persistedUser.Preferences, &persistedPrefs)
 
@@ -82,14 +160,13 @@ func TestAuthService_UpdatePreferences(t *testing.T) {
 
 func TestAuthService_ValidateToken(t *testing.T) {
 	tx := testTx(t)
-
 	os.Setenv("JWT_SECRET", "test-secret-key-12345")
-	os.Setenv("GOOGLE_CLIENT_ID", "test-client-id")
 	authSvc := NewAuthService(tx)
 
 	user := models.User{
-		ID:    uuid.New(),
-		Email: "tokenuser@test.com",
+		ID:           uuid.New(),
+		Email:        "tokenuser@test.com",
+		PasswordHash: "not-a-real-hash",
 	}
 
 	token, err := authSvc.generateToken(user)
@@ -118,19 +195,17 @@ func TestAuthService_ValidateToken(t *testing.T) {
 	}
 
 	// Test Expired Token
-	// Manually generate an expired token for testing
 	expiredClaims := TokenClaims{
 		UserID: user.ID,
 		Email:  user.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)), // Expired 1 hr ago
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(-1 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
 			Issuer:    "orbit",
 		},
 	}
 	expiredToken, _ := jwt.NewWithClaims(jwt.SigningMethodHS256, expiredClaims).SignedString([]byte("test-secret-key-12345"))
 
-	// Ensure authSvc used for expired validation is using right secret
 	os.Setenv("JWT_SECRET", "test-secret-key-12345")
 	validAuthSvc := NewAuthService(tx)
 

@@ -527,7 +527,6 @@ These bugs were diagnosed and fixed; tests guard against regression.
 | `DB_TYPE` | `postgres` | Database driver type |
 | `TEST_DB_NAME` | `orbit_test` | Test database name (used by TestMain) |
 | `JWT_SECRET` | — | Secret for signing JWTs |
-| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `SERVER_PORT` | `8080` | HTTP listen port |
 | `IPAM_URL` | `http://ipam:8081` | IPAM microservice URL |
 
@@ -542,4 +541,3 @@ These bugs were diagnosed and fixed; tests guard against regression.
 | Variable | Description |
 |---|---|
 | `VITE_API_URL` | Backend base URL (default: `http://localhost:8080`) |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |

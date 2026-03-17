@@ -103,15 +103,10 @@ func setupRouter(cfg *config.Config, db *gorm.DB) *gin.Engine {
 		// Auth routes (public & protected user)
 		auth := router.Group("/auth")
 		{
-			// Apply rate limiting to login
-			auth.POST("/google", middleware.RateLimitMiddleware(rateLimiter), authHandler.GoogleLogin)
-
-			// Backdoor for local development - disable in production
-			if gin.Mode() != gin.ReleaseMode {
-				auth.POST("/dev", authHandler.DevLogin)
-			}
-			auth.GET("/me", middleware.AuthMiddleware(authService, cfg.AuthDisabled), authHandler.GetCurrentUser)
-			auth.PUT("/preferences", middleware.AuthMiddleware(authService, cfg.AuthDisabled), authHandler.UpdatePreferences)
+			auth.POST("/register", authHandler.Register)
+			auth.POST("/login", middleware.RateLimitMiddleware(rateLimiter), authHandler.Login)
+			auth.GET("/me", middleware.AuthMiddleware(authService), authHandler.GetCurrentUser)
+			auth.PUT("/preferences", middleware.AuthMiddleware(authService), authHandler.UpdatePreferences)
 		}
 
 		// Public API routes
@@ -141,7 +136,7 @@ func setupRouter(cfg *config.Config, db *gorm.DB) *gin.Engine {
 
 		// Protected API routes (require authentication)
 		protected := api.Group("")
-		protected.Use(middleware.AuthMiddleware(authService, cfg.AuthDisabled))
+		protected.Use(middleware.AuthMiddleware(authService))
 		{
 			protected.GET("/selections", selectionHandler.GetSelections)
 			protected.POST("/selections", selectionHandler.AddSelection)
@@ -174,7 +169,7 @@ func setupRouter(cfg *config.Config, db *gorm.DB) *gin.Engine {
 		// Admin routes (require authentication + admin role)
 		admin := api.Group("/admin")
 		// Use AuthMiddlewareWithUser to load the full User model so is_admin check works
-		admin.Use(middleware.AuthMiddlewareWithUser(authService, db, cfg.AuthDisabled))
+		admin.Use(middleware.AuthMiddlewareWithUser(authService, db))
 		admin.Use(middleware.AdminRequired())
 		{
 			admin.GET("/dashboard", adminHandler.Dashboard)

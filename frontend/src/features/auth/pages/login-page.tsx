@@ -1,10 +1,7 @@
-import { GoogleLoginButton } from "../../../components/auth/google-login-button"
-import { Server, ShoppingCart, CheckSquare, Globe, Heart } from "lucide-react"
+import { AuthForm } from "../../../components/auth/auth-form"
+import { Server, ShoppingCart, CheckSquare } from "lucide-react"
 import { Link } from "react-router-dom"
 import { AnimatedLogo } from "../../../components/ui/animated-logo"
-import { Github } from "../../../components/icons/github"
-import { Discord } from "../../../components/icons/discord"
-import { BuyMeACoffee } from "../../../components/icons/buymeacoffee"
 
 export default function LoginPage() {
     return (
@@ -20,9 +17,7 @@ export default function LoginPage() {
 
             <div className="w-full max-w-sm bg-card border rounded-xl p-8">
                 <h2 className="font-semibold text-lg mb-6">Sign in to continue</h2>
-                <div className="flex justify-center">
-                    <GoogleLoginButton />
-                </div>
+                <AuthForm />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 max-w-4xl text-left">
@@ -51,29 +46,6 @@ export default function LoginPage() {
                 </Link>
             </div>
 
-            <div className="mt-12 flex items-center justify-center gap-5">
-                <a href="https://github.com/kr4t0n/orbit" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="Project Site">
-                    <Globe className="h-4 w-4" />
-                </a>
-                <a href="https://github.com/Butterski" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors" title="GitHub">
-                    <Github className="h-4 w-4" />
-                </a>
-                <a href="https://github.com/sponsors/Butterski" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-pink-500 transition-colors" title="Sponsor">
-                    <Heart className="h-4 w-4" />
-                </a>
-                <a href="https://discord.gg/8PQb2M2fBB" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-indigo-500 transition-colors" title="Discord">
-                    <Discord className="h-4 w-4" />
-                </a>
-                <a href="https://buymeacoffee.com/butterski" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-yellow-500 transition-colors" title="Buy Me a Coffee">
-                    <BuyMeACoffee className="h-4 w-4" />
-                </a>
-            </div>
-
-            <div className="mt-3 flex items-center justify-center gap-3 text-xs text-muted-foreground/60">
-                <Link to="/privacy" className="hover:text-muted-foreground transition-colors">Privacy Policy</Link>
-                <span>·</span>
-                <Link to="/terms" className="hover:text-muted-foreground transition-colors">Terms of Service</Link>
-            </div>
         </div>
     )
 }

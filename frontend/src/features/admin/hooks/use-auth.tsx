@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react"; // Fixed imports
+import { useEffect, useState } from "react";
 import { api } from "../../../lib/api";
 import { toast } from "sonner";
+
 interface User {
     id: string;
     name: string;
     email: string;
-    avatar_url?: string;
     is_admin?: boolean;
     preferences?: Record<string, any>;
 }
@@ -13,7 +13,6 @@ interface User {
 export function useAuth() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    // const { toast } = useToast(); 
 
     useEffect(() => {
         checkAuth();
@@ -22,48 +21,45 @@ export function useAuth() {
     async function checkAuth() {
         try {
             const token = localStorage.getItem('auth_token');
-            const rawClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-            const isAuthDisabled = !rawClientId || rawClientId === "your-client-id" || rawClientId === "your_client_id_here";
-
-            if (token || isAuthDisabled) {
-                // In local mode without a client ID, backend will automatically return the Local Admin
+            if (token) {
                 const user = await api.get<User>('/auth/me');
                 setUser(user);
             }
         } catch (error) {
             console.error("Auth check failed", error);
-            localStorage.removeItem('auth_token'); // Clear invalid token
+            localStorage.removeItem('auth_token');
         } finally {
             setLoading(false);
         }
     }
 
-    async function loginWithDev() {
+    async function login(email: string, password: string) {
         setLoading(true);
         try {
-            const data = await api.devLogin('admin@example.com');
+            const data = await api.login(email, password);
             localStorage.setItem('auth_token', data.token);
             setUser(data.user);
             window.location.reload();
-        } catch (error) {
-            console.error("Dev Login failed", error);
-            toast.error("Dev Login failed. Please try again.");
+        } catch (error: any) {
+            console.error("Login failed", error);
+            toast.error(error?.message || "Login failed. Please try again.");
+            throw error;
         } finally {
             setLoading(false);
         }
     }
 
-    async function loginWithGoogle(credential: string) {
+    async function register(email: string, password: string, name: string) {
         setLoading(true);
         try {
-            const data = await api.googleLogin(credential);
-            localStorage.setItem('auth_token', data.token); // Crucial fix for token persistence
+            const data = await api.register(email, password, name);
+            localStorage.setItem('auth_token', data.token);
             setUser(data.user);
-            // toast({ title: "Logged in", description: `Welcome back, ${data.user.name}` });
-            window.location.reload(); // Reload to refresh all data/states dependent on auth
-        } catch (error) {
-            console.error("Login failed", error);
-            toast.error("Login failed. Please try again.");
+            window.location.reload();
+        } catch (error: any) {
+            console.error("Registration failed", error);
+            toast.error(error?.message || "Registration failed. Please try again.");
+            throw error;
         } finally {
             setLoading(false);
         }
@@ -83,8 +79,8 @@ export function useAuth() {
     return {
         user,
         loading,
-        loginWithGoogle,
-        loginWithDev,
+        login,
+        register,
         updatePreferences,
         logout: () => {
              localStorage.removeItem('auth_token');

@@ -1,7 +1,6 @@
 package services
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,14 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
-	"google.golang.org/api/idtoken"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 type AuthService struct {
 	db        *gorm.DB
 	jwtSecret []byte
-	clientID  string
 }
 
 func NewAuthService(db *gorm.DB) *AuthService {
@@ -38,15 +36,11 @@ func NewAuthService(db *gorm.DB) *AuthService {
 		}
 	}
 
-	clientID := os.Getenv("GOOGLE_CLIENT_ID")
 	return &AuthService{
 		db:        db,
 		jwtSecret: []byte(secret),
-		clientID:  clientID,
 	}
 }
-
-// ... (TokenClaims struct remains same)
 
 type TokenClaims struct {
 	UserID uuid.UUID `json:"user_id"`
@@ -54,8 +48,15 @@ type TokenClaims struct {
 	jwt.RegisteredClaims
 }
 
-type GoogleLoginInput struct {
-	Credential string `json:"credential" binding:"required"` // The ID Token from frontend
+type RegisterInput struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+	Name     string `json:"name" binding:"required"`
+}
+
+type LoginInput struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 type AuthResponse struct {
@@ -63,122 +64,25 @@ type AuthResponse struct {
 	User  models.User `json:"user"`
 }
 
-func (s *AuthService) GoogleLogin(input GoogleLoginInput) (*AuthResponse, error) {
-	if s.clientID == "" {
-		return nil, errors.New("GOOGLE_CLIENT_ID not configured on backend")
+func (s *AuthService) Register(input RegisterInput) (*AuthResponse, error) {
+	// Check if email already exists
+	var existing models.User
+	if err := s.db.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+		return nil, errors.New("email already registered")
 	}
 
-	// Verify the ID Token
-	payload, err := idtoken.Validate(context.Background(), input.Credential, s.clientID)
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("invalid google token: %w", err)
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	// Extract user data from payload
-	email, ok := payload.Claims["email"].(string)
-	if !ok {
-		return nil, errors.New("token missing email")
+	user := models.User{
+		Email:        input.Email,
+		PasswordHash: string(hash),
+		Name:         input.Name,
 	}
-	googleID, ok := payload.Claims["sub"].(string)
-	if !ok {
-		return nil, errors.New("token missing sub (google_id)")
-	}
-	name, _ := payload.Claims["name"].(string)
-	picture, _ := payload.Claims["picture"].(string)
-
-	return s.loginOrRegister(email, name, googleID, picture)
-}
-
-// GetOrCreateLocalAdmin provides a static user for self-hosted instances with AuthDisabled=true
-func (s *AuthService) GetOrCreateLocalAdmin() (*models.User, error) {
-	const localEmail = "local@homelab.local"
-	const localName = "Local Admin"
-	const localGoogleID = "local-auth-disabled"
-	const localAvatarURL = "https://api.dicebear.com/7.x/avataaars/svg?seed=local-admin"
-
-	var user models.User
-	err := s.db.Where("email = ?", localEmail).First(&user).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			user = models.User{
-				GoogleID:  localGoogleID,
-				Email:     localEmail,
-				Name:      localName,
-				AvatarURL: localAvatarURL,
-			}
-			if createErr := s.db.Create(&user).Error; createErr != nil {
-				return nil, fmt.Errorf("failed to create local admin: %w", createErr)
-			}
-			return &user, nil
-		}
-		return nil, fmt.Errorf("database error checking local admin: %w", err)
-	}
-
-	// Local admin already exists
-	return &user, nil
-}
-
-// DevLogin bypasses Google Auth for local development
-func (s *AuthService) DevLogin(email string) (*AuthResponse, error) {
-	if email == "" {
-		return nil, errors.New("email required")
-	}
-
-	// Mock a Google ID based on email
-	mockGoogleID := "dev-" + email
-	name := "Dev User (" + email + ")"
-	avatarURL := "https://api.dicebear.com/7.x/avataaars/svg?seed=" + email
-
-	return s.loginOrRegister(email, name, mockGoogleID, avatarURL)
-}
-
-func (s *AuthService) loginOrRegister(email, name, googleID, avatarURL string) (*AuthResponse, error) {
-	var user models.User
-
-	// 1. Try to find by Google ID
-	err := s.db.Where("google_id = ?", googleID).First(&user).Error
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 2. Not found by Google ID — check if email exists
-			emailErr := s.db.Where("email = ?", email).First(&user).Error
-
-			if emailErr == nil {
-				// Found by email! Link this account to the Google ID
-				// This handles the "Seed User" case where GoogleID was empty
-				user.GoogleID = googleID
-				user.Name = name
-				user.AvatarURL = avatarURL
-				if saveErr := s.db.Save(&user).Error; saveErr != nil {
-					return nil, fmt.Errorf("failed to link existing user: %w", saveErr)
-				}
-			} else if errors.Is(emailErr, gorm.ErrRecordNotFound) {
-				// 3. Not found by Email either — Create new user
-				user = models.User{
-					GoogleID:  googleID,
-					Email:     email,
-					Name:      name,
-					AvatarURL: avatarURL,
-				}
-				if createErr := s.db.Create(&user).Error; createErr != nil {
-					return nil, fmt.Errorf("failed to create user: %w", createErr)
-				}
-			} else {
-				// DB error on email check
-				return nil, fmt.Errorf("database error checking email: %w", emailErr)
-			}
-		} else {
-			// DB error on google_id check
-			return nil, fmt.Errorf("database error checking google_id: %w", err)
-		}
-	} else {
-		// Found by Google ID — Update details
-		updates := map[string]interface{}{
-			"email":      email,
-			"name":       name,
-			"avatar_url": avatarURL,
-		}
-		s.db.Model(&user).Updates(updates)
+	if err := s.db.Create(&user).Error; err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	token, err := s.generateToken(user)
@@ -186,10 +90,28 @@ func (s *AuthService) loginOrRegister(email, name, googleID, avatarURL string) (
 		return nil, err
 	}
 
-	return &AuthResponse{
-		Token: token,
-		User:  user,
-	}, nil
+	return &AuthResponse{Token: token, User: user}, nil
+}
+
+func (s *AuthService) Login(input LoginInput) (*AuthResponse, error) {
+	var user models.User
+	if err := s.db.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("invalid credentials")
+		}
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
+		return nil, errors.New("invalid credentials")
+	}
+
+	token, err := s.generateToken(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthResponse{Token: token, User: user}, nil
 }
 
 func (s *AuthService) GetCurrentUser(userID uuid.UUID) (*models.User, error) {

@@ -60,7 +60,7 @@ func fetchIP(t *testing.T, db *gorm.DB, nodeID uuid.UUID) string {
 
 func newBuildID(t *testing.T, db *gorm.DB) uuid.UUID {
 	t.Helper()
-	user := models.User{Email: uuid.NewString() + "@test.com", Name: "T", GoogleID: uuid.NewString()}
+	user := models.User{Email: uuid.NewString() + "@test.com", Name: "T", PasswordHash: "testhash"}
 	if err := db.Create(&user).Error; err != nil {
 		t.Fatalf("newBuildID: create user: %v", err)
 	}

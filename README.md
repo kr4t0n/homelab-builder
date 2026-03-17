@@ -63,7 +63,7 @@ A standalone Go microservice handles all IP address allocation:
 | **Backend API** | Go 1.24+, Gin, GORM |
 | **IPAM Microservice** | Go 1.24+, standard library REST |
 | **Database** | PostgreSQL 17 |
-| **Auth** | Google OAuth 2.0 + JWT (optional — runs without auth for self-hosting) |
+| **Auth** | Email/password + JWT |
 | **Infrastructure** | Docker & Docker Compose |
 
 ---
@@ -74,14 +74,14 @@ A standalone Go microservice handles all IP address allocation:
 git clone https://github.com/kr4t0n/orbit.git
 cd orbit
 
-# Start all services (no .env needed — auth-disabled mode by default)
+# Start all services
 docker compose up -d
 
 # Frontend: http://localhost:3000
 # Backend:  http://localhost:8080
 ```
 
-Without Google OAuth credentials, Orbit runs in **auth-disabled mode** — it automatically provisions a local admin user so you can start building immediately. See [Auth-Disabled Mode](#self-hosting-without-google-oauth) below for details.
+Create an account via the registration form to get started.
 
 ---
 
@@ -130,40 +130,16 @@ make test-frontend
 
 ---
 
-## Self-Hosting Without Google OAuth
+## Authentication
 
-Orbit ships with a built-in **auth-disabled mode** for local and trusted-network deployments. When `GOOGLE_CLIENT_ID` is unset, the backend bypasses JWT validation and auto-provisions a **Local Admin** user (`local@homelab.local`) with full access.
+Orbit uses traditional **email/password authentication** with bcrypt password hashing and JWT tokens.
 
-### How to enable
+- **Register** at `POST /auth/register` with `email`, `password` (min 8 chars), and `name`.
+- **Login** at `POST /auth/login` with `email` and `password`.
+- Both endpoints return a JWT token (7-day expiry) to use as `Authorization: Bearer <token>`.
+- Rate limiting protects the login endpoint (6 failed attempts = 15-minute lockout).
 
-Just start the stack without providing Google/JWT variables — the default `docker-compose.yml` triggers auth-disabled mode when they are absent.
-
-If running with `GIN_MODE=release`, either switch to `debug` or set `JWT_SECRET` to any random string:
-
-```yaml
-# docker-compose.override.yml
-services:
-  backend:
-    environment:
-      GIN_MODE: "debug"
-```
-
-### Environment variables (auth-related)
-
-| Variable | Required for auth-disabled? | Description |
-|---|---|---|
-| `GOOGLE_CLIENT_ID` | No — leave unset | Enables auth-disabled mode when empty |
-| `VITE_GOOGLE_CLIENT_ID` | No — leave unset | Frontend skips Google login and auto-authenticates |
-| `JWT_SECRET` | No (unless `GIN_MODE=release`) | Unused in auth-disabled mode |
-| `GIN_MODE` | No | Set to `debug` to skip JWT secret strength check |
-
-### Dev login endpoint
-
-When `GIN_MODE != release`, a development endpoint is available at `POST /auth/dev` — send `{"email": "any@example.com"}` to get a JWT for scripting and multi-user testing.
-
-### Security note
-
-Auth-disabled mode grants full admin access to anyone who can reach the instance. Do not expose it to the public internet without a VPN or reverse proxy with its own authentication layer.
+In production (`GIN_MODE=release`), `JWT_SECRET` must be set to a strong, unique value.
 
 ---
 
@@ -180,7 +156,6 @@ Auth-disabled mode grants full admin access to anyone who can reach the instance
 | `DB_NAME` | `orbit` | Database name |
 | `DB_SSLMODE` | `disable` | PostgreSQL SSL mode |
 | `JWT_SECRET` | — | JWT signing secret |
-| `GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `SERVER_PORT` | `8080` | HTTP listen port |
 | `IPAM_URL` | `http://ipam:8081` | IPAM microservice URL |
 
@@ -195,7 +170,6 @@ Auth-disabled mode grants full admin access to anyone who can reach the instance
 | Variable | Description |
 |---|---|
 | `VITE_API_URL` | Backend base URL (default `http://localhost:8080`) |
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth client ID |
 
 ---
 

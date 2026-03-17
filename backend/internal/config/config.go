@@ -6,33 +6,28 @@ import (
 )
 
 type Config struct {
-	ServerPort   string
-	DBHost       string
-	DBPort       string
-	DBUser       string
-	DBPassword   string
-	DBName       string
-	DBSSLMode    string
-	DBType       string
-	DBFile       string
-	AuthDisabled bool
+	ServerPort string
+	DBHost     string
+	DBPort     string
+	DBUser     string
+	DBPassword string
+	DBName     string
+	DBSSLMode  string
+	DBType     string
+	DBFile     string
 }
 
 func Load() *Config {
-	clientId := getEnv("GOOGLE_CLIENT_ID", "")
-	isAuthDisabled := clientId == "" || clientId == "your-client-id" || clientId == "your_client_id_here"
-
 	return &Config{
-		ServerPort:   getEnv("SERVER_PORT", "8080"),
-		DBHost:       getEnv("DB_HOST", "localhost"),
-		DBPort:       getEnv("DB_PORT", "5432"),
-		DBUser:       getEnv("DB_USER", "orbit"),
-		DBPassword:   getEnv("DB_PASSWORD", "orbit_password"),
-		DBName:       getEnv("DB_NAME", "orbit"),
-		DBSSLMode:    getEnv("DB_SSLMODE", "disable"),
-		DBType:       getEnv("DB_TYPE", "sqlite"), // Default to sqlite
-		DBFile:       getEnv("DB_FILE", "orbit.db"),
-		AuthDisabled: isAuthDisabled,
+		ServerPort: getEnv("SERVER_PORT", "8080"),
+		DBHost:     getEnv("DB_HOST", "localhost"),
+		DBPort:     getEnv("DB_PORT", "5432"),
+		DBUser:     getEnv("DB_USER", "orbit"),
+		DBPassword: getEnv("DB_PASSWORD", "orbit_password"),
+		DBName:     getEnv("DB_NAME", "orbit"),
+		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+		DBType:     getEnv("DB_TYPE", "sqlite"),
+		DBFile:     getEnv("DB_FILE", "orbit.db"),
 	}
 }
 
