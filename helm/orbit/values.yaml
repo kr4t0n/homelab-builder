@@ -1,0 +1,65 @@
+frontend:
+  replicaCount: 1
+  image:
+    repository: kr4t0n/orbit-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources: {}
+
+backend:
+  replicaCount: 1
+  image:
+    repository: kr4t0n/orbit-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  resources: {}
+
+ipam:
+  replicaCount: 1
+  image:
+    repository: kr4t0n/orbit-ipam
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8081
+  resources: {}
+
+postgres:
+  # Set to true to deploy a PostgreSQL StatefulSet.
+  # Set to false to use an existing PostgreSQL instance (configure connection below).
+  deploy: false
+  # Connection settings — used by the backend regardless of deploy mode.
+  host: ""
+  port: 5432
+  user: orbit
+  password: orbit
+  database: orbit
+  sslmode: disable
+  # Use an existing Kubernetes Secret for postgres credentials.
+  # The secret must contain keys: POSTGRES_USER and POSTGRES_PASSWORD.
+  # When set, postgres.user and postgres.password are ignored.
+  existingSecret: ""
+  # Settings below only apply when deploy is true.
+  image:
+    repository: postgres
+    tag: "17"
+    pullPolicy: IfNotPresent
+  storage:
+    size: 5Gi
+    storageClass: ""
+  resources: {}
+
+jwtSecret: changeme-generate-a-real-secret
+
+ingress:
+  enabled: false
+  className: ""
+  host: orbit.local
+  tls: []

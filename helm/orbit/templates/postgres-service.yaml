@@ -1,0 +1,17 @@
+{{- if .Values.postgres.deploy }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "orbit.fullname" . }}-postgres
+  labels:
+    {{- include "orbit.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.postgres.port }}
+      targetPort: 5432
+  selector:
+    {{- include "orbit.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+{{- end }}
