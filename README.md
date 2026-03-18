@@ -4,7 +4,7 @@
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-> **Special Thanks** — Orbit began as a fork of [**Butterski/homelab-builder**](https://github.com/Butterski/homelab-builder) by [Paweł Kręczewski](https://www.linkedin.com/in/pawe%C5%82-kr%C4%99czewski-a2a372242/). The original project laid the groundwork for the visual builder concept and its 3-layer structural logo. Orbit has since diverged significantly — narrowing the scope to a dedicated network topology visualizer while adding Tailscale VPN overlays, Kubernetes cluster modeling, and a reworked IP management engine — but the original vision and effort deserve recognition. Thank you, Paweł.
+> **Special Thanks** — Orbit began as a fork of [**Butterski/homelab-builder**](https://github.com/Butterski/homelab-builder) by [Miłosz](https://github.com/Butterski). The original project laid the groundwork for the visual builder concept and its 3-layer structural logo. Orbit has since diverged significantly — narrowing the scope to a dedicated network topology visualizer while adding Tailscale VPN overlays, Kubernetes cluster modeling, and a reworked IP management engine — but the original vision and effort deserve recognition. Thank you, Miłosz.
 
 ---
 

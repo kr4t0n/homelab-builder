@@ -39,7 +39,7 @@ postgres:
   host: ""
   port: 5432
   user: orbit
-  password: orbit
+  password: orbit_password
   database: orbit
   sslmode: disable
   # Use an existing Kubernetes Secret for postgres credentials.
